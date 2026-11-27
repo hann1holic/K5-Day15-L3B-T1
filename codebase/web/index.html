@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#131310">
+  <meta name="description" content="Tạo phòng Ma Sói, mời bạn và chơi một ván với NPC lấp ghế.">
+  <title>Ma Sói</title>
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span> Ma Sói</div>
+    <div id="connection" class="connection" data-status="waiting" role="status">Đang kết nối</div>
+  </header>
+
+  <main class="shell">
+    <p id="notice" class="notice" role="status" hidden></p>
+
+    <section id="home" class="entry">
+      <div class="entry-copy">
+        <h1>Ma Sói</h1>
+        <p>Mời bạn vào phòng bằng mã. NPC sẽ lấp các ghế trống.</p>
+      </div>
+      <div class="entry-box panel">
+        <label for="player-name">Tên hiển thị</label>
+        <input id="player-name" maxlength="20" autocomplete="nickname" placeholder="Nhập tên của bạn">
+        <div id="entry-modes" class="tabs" aria-label="Chọn cách vào phòng">
+          <button id="show-create" type="button" aria-pressed="true">Tạo phòng</button>
+          <button id="show-join" type="button" aria-pressed="false">Vào phòng</button>
+        </div>
+        <form id="create-form">
+          <label for="seats">Số ghế</label>
+          <select id="seats" name="seats"></select>
+          <button class="primary" type="submit" data-connection>Tạo phòng</button>
+        </form>
+        <form id="join-form" hidden>
+          <label for="room-input">Mã phòng</label>
+          <input id="room-input" name="code" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="Nhập mã 4 ký tự" required>
+          <button class="primary" type="submit" data-connection>Vào phòng</button>
+        </form>
+        <button id="resume" class="quiet" type="button" data-connection hidden></button>
+      </div>
+    </section>
+
+    <section id="lobby" hidden>
+      <div class="screen-heading">
+        <div><p class="eyebrow">Phòng chờ</p><h1 id="room-code"></h1><p>Gửi mã này cho bạn bè để vào cùng phòng.</p></div>
+        <button class="quiet leave" type="button">Rời phòng</button>
+      </div>
+      <div class="lobby-grid">
+        <div class="panel"><h2>Người chơi <span id="seat-count" class="small"></span></h2><ul id="members" class="members"></ul></div>
+        <div class="panel lobby-controls">
+          <button id="copy-code" type="button">Sao chép mã phòng</button>
+          <label id="lobby-seat-label" for="lobby-seats" hidden>Số ghế trong phòng</label>
+          <select id="lobby-seats" hidden></select>
+          <div class="timing">
+            <h2>Thời gian từng lượt</h2>
+            <p id="timer-summary" class="muted small"></p>
+            <form id="timer-settings" hidden>
+              <div class="timer-fields">
+                <label>Thảo luận (giây)<input id="discussion-seconds" type="number" min="1" max="600" step="1" required></label>
+                <label>Bỏ phiếu (giây)<input id="vote-seconds" type="number" min="1" max="600" step="1" required></label>
+                <label>Mỗi lượt đêm (giây)<input id="night-seconds" type="number" min="1" max="600" step="1" required></label>
+              </div>
+              <button id="save-timers" type="submit">Lưu thời gian</button>
+              <p id="timer-status" class="small muted" role="status" hidden></p>
+            </form>
+          </div>
+          <p id="bot-count" class="muted"></p>
+          <button id="start" class="primary" type="button" data-connection hidden>Bắt đầu</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="game" hidden>
+      <div class="screen-heading game-heading">
+        <div><p id="round-label" class="eyebrow"></p><h1 id="phase-label"></h1><p id="round-news"></p></div>
+        <div class="heading-controls"><span id="timer" class="timer" aria-label="Thời gian còn lại"></span><button class="quiet leave" type="button">Rời phòng</button></div>
+      </div>
+      <section id="turn-panel" class="panel turn-panel" aria-labelledby="turn-title">
+        <h2 id="turn-title">Lượt của bạn</h2>
+        <p id="phase-guide" class="muted"></p>
+        <div id="action-list" class="action-list"></div>
+        <p id="action-status" class="muted small" role="status"></p>
+        <details class="round-help">
+          <summary>Cách bỏ phiếu và dùng kỹ năng</summary>
+          <p><strong>Ban ngày:</strong> thảo luận rồi chọn một người để bỏ phiếu loại. Người nhiều phiếu nhất bị loại. Hòa phiếu thì không ai bị loại.</p>
+          <p><strong>Ban đêm:</strong> phe Sói vote cắn trước. Kết quả cắn chỉ được tính sau khi các vai dùng kỹ năng. Đến lượt của bạn, chọn mục tiêu và bấm nút tương ứng. Nếu chưa có nút, đồng hồ hiển thị thời gian còn lại của cả đêm.</p>
+        </details>
+      </section>
+      <div class="game-grid">
+        <div class="table-board panel"><h2>Sân làng</h2><div id="stage" class="stage"></div></div>
+        <aside class="game-side" aria-label="Vai trò, hành động và trò chuyện">
+          <div class="panel personal">
+            <p class="eyebrow">Vai của bạn</p>
+            <h2 id="player-role"></h2>
+            <p id="role-detail" class="muted"></p>
+            <p id="private-info" class="muted" hidden></p>
+          </div>
+          <div class="panel chat-panel">
+            <div class="tabs" aria-label="Kênh trò chuyện">
+              <button id="public-tab" type="button" aria-pressed="true">Chat chung</button>
+              <button id="private-tab" type="button" aria-pressed="false">Chat riêng</button>
+            </div>
+            <label id="peer-label" for="chat-peer" hidden>Nhắn với</label>
+            <select id="chat-peer" hidden></select>
+            <ul id="chat-log" class="chat-log" role="log" aria-label="Tin nhắn"></ul>
+            <form id="chat-form">
+              <label for="chat-input" class="sr-only">Tin nhắn</label>
+              <input id="chat-input" type="text" maxlength="200" placeholder="Nhập tin nhắn" autocomplete="off">
+              <button type="submit">Gửi</button>
+            </form>
+            <p id="chat-status" class="small muted"></p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="result" hidden>
+      <div class="screen-heading">
+        <div><p class="eyebrow">Kết quả ván</p><h1 id="winner"></h1><p id="result-news"></p></div>
+        <div class="heading-controls"><button class="quiet leave" type="button">Rời phòng</button><button id="restart" class="primary" type="button" data-connection hidden>Chơi lại</button></div>
+      </div>
+      <div class="panel"><h2>Vai của cả bàn</h2><ul id="reveal" class="player-grid"></ul></div>
+    </section>
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
