@@ -85,6 +85,25 @@ Mỗi bước đi một ô theo bốn hướng. Giao diện gửi `move` mỗi 1
 
 Trong `night_wolf`, `view.wolf_pack` chứa `player_id` và `role` (`soi_thuong` hoặc `soi_con`) của từng Sói còn sống trong đàn, kể cả người nhận. Dũng dùng danh sách này để hiện đúng hình từng Sói bên đống lửa. `view.wolf_chat` chứa tin nhắn riêng của đàn trong đêm đó. Trong hành động `vote`, `target_ids` là toàn bộ mục tiêu hợp lệ và `ally_target_ids` đánh dấu Sói con nếu đàn có thể cắn đồng đội. Các trường này chỉ được gửi cho Sói đang có lượt săn.
 
+### Tên và hiển thị cổ vật
+
+Dũng dùng cùng một bảng ánh xạ tên, biểu tượng và công dụng cho vật phẩm trên map, thông báo nhặt đồ, ô đồ đang giữ và kết quả bỏ phiếu. Giữ mã `sword` và `shield` trong `held_item`, `visible_items` và khi gửi `pick_up`.
+
+| Mã server | Tên hiển thị | Mô tả |
+|---|---|---|
+| `sword` | **Gươm Excalibur** | Phiếu của bạn tính gấp đôi trong ngày hôm nay. |
+| `shield` | **Khiên Pridwen** | Bảo vệ bạn nếu bạn là người duy nhất có nhiều phiếu nhất hôm nay. |
+
+Trước khi khóa phiếu, chỉ chủ vật phẩm thấy tên cổ vật mình đang giữ. Sau khi nhận `view.lucky_vote_result`, dùng `double_voters` để hiện Gươm Excalibur đã nhân đôi phiếu và `shielded` để hiện Khiên Pridwen đã cứu người bị vote loại. Quy tắc hết hiệu lực theo ngày vẫn nằm ở server.
+
+#### Đũa Morgana trong bản thử
+
+- Cổ vật hiếm nhặt trong Lucky Day và dùng vào ban đêm. Mốc đang thử là 10% cơ hội mỗi ván, tối đa một đũa và một lần dùng.
+- Phe Dân chọn một người bất kỳ đã chết để hồi sinh. Người đó giữ vai và phe. Nếu người dùng đũa chết sau đó, người được hồi sinh chết theo. Nếu Tiên tri gốc được cứu sau khi Tiên tri tập sự đã lên vai, mỗi Tiên tri soi riêng một lượt.
+- Phe Sói chọn một người còn sống bên Dân để gửi lời mời ẩn danh. Chỉ người được mời thấy nút đồng ý hoặc từ chối. Người đồng ý chuyển thành Sói thường. Cách dùng cho phe Tình Nhân và mã action chính thức cần chốt khi đưa bản thử vào server.
+- Sáng hôm sau, dùng đúng một thông báo công khai cho cả hai cách dùng, kể cả khi lời mời thất bại. **“Đêm qua, có người đã dùng Đũa Morgana.”** Giữ kín người dùng, mục tiêu và nội dung lời mời. Nếu hồi sinh thành công, cập nhật người trở lại tại thời điểm họ xuất hiện ở quảng trường.
+- Chỉ hiện Đũa Morgana và các nút thao tác khi server gửi vật phẩm hoặc quyền tương ứng. Server hiện phục vụ Gươm Excalibur và Khiên Pridwen trong workflow Lucky Day.
+
 Chạy từ thư mục gốc để kiểm tra bộ máy với ván mock:
 
 ~~~bash
