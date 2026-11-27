@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#131310">
   <meta name="description" content="Tạo phòng Ma Sói, mời bạn và chơi một ván với NPC lấp ghế.">
   <title>Ma Sói</title>
+  <link rel="icon" href="data:,">
 </head>
 <body>
   <header class="topbar">
@@ -89,7 +90,7 @@
         </details>
       </section>
       <div class="game-grid">
-        <div class="table-board panel"><h2>Bàn chơi</h2><ul id="table-players" class="player-grid"></ul></div>
+        <div class="table-board panel"><h2>Sân làng</h2><div id="stage" class="stage"></div></div>
         <aside class="game-side" aria-label="Vai trò, hành động và trò chuyện">
           <div class="panel personal">
             <p class="eyebrow">Vai của bạn</p>
@@ -118,7 +119,7 @@
 
     <section id="result" hidden>
       <div class="screen-heading">
-        <div><p class="eyebrow">Kết quả ván</p><h1 id="winner"></h1></div>
+        <div><p class="eyebrow">Kết quả ván</p><h1 id="winner"></h1><p id="result-news"></p></div>
         <div class="heading-controls"><button class="quiet leave" type="button">Rời phòng</button><button id="restart" class="primary" type="button" data-connection hidden>Chơi lại</button></div>
       </div>
       <div class="panel"><h2>Vai của cả bàn</h2><ul id="reveal" class="player-grid"></ul></div>

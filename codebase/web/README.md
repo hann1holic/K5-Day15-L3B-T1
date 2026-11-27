@@ -30,3 +30,7 @@ Ban ngày, bấm **Bỏ phiếu loại** sau pha thảo luận. Ban đêm, chỉ
 Giao diện đọc các giá trị từ `lobby.timers`. Chủ phòng gửi `{"type":"set_timers","timers":{"discussion_seconds":90,"vote_seconds":30,"night_seconds":20}}`. Mỗi giá trị phải là số nguyên từ 1 đến 600 giây. Server xác thực quyền và gửi lại phòng chờ với thời gian đã lưu.
 
 Kiểm tra bản build bằng `npm run build`.
+
+## Hình và phong cách
+
+Khung và nút dùng ảnh của [RPGUI](https://github.com/RonenNess/RPGUI) (Ronen Ness, giấy phép zlib, xem `src/assets/rpgui/`). Font pixel VT323 (có dấu tiếng Việt) cài qua `@fontsource/vt323`. Kiểu nằm trong `src/theme-rpg.css`; sân làng vẽ ở `src/stage.js`, hình nhân vật hiện là ô màu tạm.

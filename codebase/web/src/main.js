@@ -1,4 +1,7 @@
+import "@fontsource/vt323";
 import "./styles.css";
+import "./theme-rpg.css";
+import { renderStage } from "./stage.js";
 
 const $ = (id) => document.getElementById(id);
 const screens = ["home", "lobby", "game", "result"];
@@ -48,6 +51,7 @@ let actionSignature = "";
 let chatSignature = "";
 let awaitingAction = false;
 let pendingActionText = "";
+let pendingAction = null;
 let timerSignature = "";
 let savingTimers = false;
 let session = loadSession(sessionStorage);
@@ -192,6 +196,7 @@ function receive(message) {
         $("action-status").textContent = "";
       }
       match = message;
+      if ($("notice").dataset.tone === "error") notice();
       if (message.view.phase === "finished") {
         renderResult();
       } else {
@@ -201,6 +206,10 @@ function receive(message) {
     }
     case "action_result":
       awaitingAction = false;
+      // Chỉ xoá ô chat khi server đã nhận, để tin bị từ chối không mất.
+      if (message.accepted && pendingAction?.text && $("chat-input").value.trim() === pendingAction.text) {
+        $("chat-input").value = "";
+      }
       $("action-status").textContent = message.accepted
         ? pendingActionText || "Máy chủ đã ghi nhận thao tác."
         : rejections[message.reason] || "Máy chủ chưa ghi nhận thao tác.";
@@ -226,11 +235,13 @@ function receive(message) {
         savingTimers = false;
         updateTimerControls();
       }
+      awaitingAction = false;
       if (rejoining && ["bad_token", "room_not_found"].includes(message.code)) {
         resetRoom();
       }
       rejoining = false;
       notice(message.message || "Yêu cầu chưa được xử lý.", "error");
+      if (display === "game") renderActionsAndChat();
       break;
   }
 }
@@ -334,19 +345,36 @@ function playerCard(player, revealed = false) {
   return card;
 }
 
+// Thông báo đầu lượt: sáng báo người chết trong đêm, tối báo kết quả bỏ phiếu.
+function roundNews(view) {
+  const list = (ids) => ids.map(nameOf).join(", ");
+  if (view.phase.startsWith("day_")) {
+    return view.last_deaths.length
+      ? "Đêm qua: " + list(view.last_deaths) + " bị loại."
+      : "Đêm qua không ai bị loại.";
+  }
+  if (view.round === 1) return "";
+  if (!view.eliminated) return "Cuộc bỏ phiếu vừa rồi không loại ai.";
+  const chain = view.last_deaths.filter((id) => id !== view.eliminated);
+  return "Dân làng đã loại " + nameOf(view.eliminated) + "." +
+    (chain.length ? " Chết theo: " + list(chain) + "." : "");
+}
+
+// Bot và người chơi có thể nhắc mã ghế (P03) trong tin: đổi thành tên.
+function withNames(text) {
+  return text.replace(/\bP\d{2}\b/g, nameOf);
+}
+
 function renderGame() {
   const view = match.view;
-  const night = view.phase.startsWith("night");
+  // Lượt ghép đôi cũng là đêm: tiêu đề chung để không lộ lượt của vai nào.
+  const night = view.phase === "pair" || view.phase.startsWith("night");
   $("game").dataset.night = String(night);
   $("round-label").textContent = "Phòng " + match.code + " · Vòng " + view.round;
   $("phase-label").textContent = night ? "Đêm xuống" :
-    { pair: "Chuẩn bị ván", day_discussion: "Thảo luận", day_vote: "Bỏ phiếu" }[view.phase] || "Đang chơi";
-  $("round-news").textContent = view.phase.startsWith("day_")
-    ? view.last_deaths.length
-      ? "Đêm qua: " + view.last_deaths.map(nameOf).join(", ") + " bị loại."
-      : "Đêm qua không ai bị loại."
-    : "";
-  $("table-players").replaceChildren(...view.players.map((player) => playerCard(player)));
+    { day_discussion: "Thảo luận", day_vote: "Bỏ phiếu" }[view.phase] || "Đang chơi";
+  $("round-news").textContent = roundNews(view);
+  renderStage($("stage"), match);
   $("player-role").textContent = roleName(view.role);
   $("role-detail").textContent = "Phe " + (factions[view.faction] || view.faction) + ". " + (roles[view.role]?.[1] || "");
   const info = [];
@@ -378,6 +406,7 @@ function submitAction(action, confirmation = "Đã gửi tin nhắn.") {
   if (!match || awaitingAction) return false;
   if (!send("action", { phase_id: match.phase_id, action })) return false;
   pendingActionText = confirmation;
+  pendingAction = action;
   $("action-status").textContent = "Đang gửi…";
   awaitingAction = true;
   renderActionsAndChat();
@@ -500,7 +529,7 @@ function renderChat() {
     const log = $("chat-log");
     const rows = messages.map((entry) => {
       const row = element("li");
-      row.append(element("strong", nameOf(entry.player_id)), document.createTextNode(": " + entry.text));
+      row.append(element("strong", nameOf(entry.player_id)), document.createTextNode(": " + withNames(entry.text)));
       return row;
     });
     if (!rows.length) rows.push(element("li", isPrivate && !peer ? "Chọn người để xem tin nhắn riêng." : "Chưa có tin nhắn.", "muted"));
@@ -519,6 +548,9 @@ function renderChat() {
 function renderResult() {
   $("winner").textContent = match.view.winner === "hoa" ? "Ván hòa" :
     "Phe " + (factions[match.view.winner] || match.view.winner) + " thắng";
+  const { eliminated, last_deaths: deaths } = match.view;
+  $("result-news").textContent = !deaths.length ? ""
+    : (eliminated ? "Lượt bỏ phiếu cuối: " : "Đêm cuối: ") + deaths.map(nameOf).join(", ") + " bị loại.";
   $("restart").hidden = !match.is_host;
   $("reveal").replaceChildren(...(match.reveal || []).map((player) => playerCard(player, true)));
   showScreen("result");
@@ -584,6 +616,7 @@ $("copy-code").addEventListener("click", async () => {
 });
 for (const button of document.querySelectorAll(".leave")) {
   button.addEventListener("click", () => {
+    if (display === "game" && !confirm("Rời ván đang chơi? Bạn sẽ không vào lại được.")) return;
     if (online()) send("leave");
     resetRoom();
   });
@@ -599,7 +632,7 @@ $("chat-form").addEventListener("submit", (event) => {
   const action = chatChannel === "private"
     ? { type: "whisper", target_id: $("chat-peer").value, text }
     : { type: "chat", text };
-  if (submitAction(action)) input.value = "";
+  submitAction(action);
 });
 
 updateResume();

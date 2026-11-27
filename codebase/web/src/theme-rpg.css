@@ -1,0 +1,103 @@
+/* Phong cách game nhập vai, dùng ảnh khung và nút của RPGUI (xem assets/rpgui).
+   Bỏ dòng import file này trong main.js là về lại giao diện cũ. */
+
+:root {
+  --pixel: "VT323", "Segoe UI", monospace;
+}
+
+h1, h2, .brand, .eyebrow, .timer, button, summary, .seat-name, .seat-tag {
+  font-family: var(--pixel);
+  letter-spacing: .02em;
+}
+h1 { font-weight: 400; text-shadow: 3px 3px 0 #000; }
+h2 { font-size: 1.85rem; font-weight: 400; color: var(--accent); text-shadow: 2px 2px 0 #000; }
+.eyebrow { font-size: 1.15rem; }
+.brand { font-size: 1.9rem; }
+.timer { font-size: 1.7rem; }
+
+/* Khung gỗ viền vàng */
+.panel {
+  border: 12px solid transparent;
+  border-image: url("./assets/rpgui/border-image.png") 6 repeat;
+  border-radius: 0;
+  background: url("./assets/rpgui/background-image.png") repeat;
+  background-clip: padding-box;
+  image-rendering: pixelated;
+  box-shadow: 0 6px 18px #0008;
+}
+.turn-panel[data-active=true] {
+  border-image: url("./assets/rpgui/border-image-golden.png") 6 repeat;
+  background: url("./assets/rpgui/background-image.png") repeat;
+}
+
+/* Nút gỗ */
+button, .tabs button[aria-pressed] {
+  min-height: 46px;
+  border: 0;
+  border-radius: 0;
+  background: url("./assets/rpgui/button.png") center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+  color: #fff;
+  font-size: 1.3rem;
+  text-shadow: 2px 2px 0 #000;
+  padding-inline: 1.4rem;
+}
+button:hover:not(:disabled) { background-image: url("./assets/rpgui/button-hover.png"); }
+button:active:not(:disabled) { background-image: url("./assets/rpgui/button-down.png"); }
+/* Ghi lại đủ background: styles.css đặt `background` cho nút chính, nếu không ảnh sẽ bị lặp. */
+button.primary {
+  background: url("./assets/rpgui/button.png") center / 100% 100% no-repeat;
+  color: #ffe9a8;
+  font-size: 1.55rem;
+  font-weight: 400;
+  filter: saturate(1.25) brightness(1.08);
+}
+button.primary:hover:not(:disabled) { background: url("./assets/rpgui/button-hover.png") center / 100% 100% no-repeat; }
+button.primary:active:not(:disabled) { background: url("./assets/rpgui/button-down.png") center / 100% 100% no-repeat; }
+/* Tiêu đề được focus bằng code khi đổi màn, không cần viền. */
+h1:focus { outline: none; }
+button.quiet { background: transparent; border: 2px solid var(--line); }
+button.quiet:hover:not(:disabled) { background: #0006; }
+
+/* Thẻ chọn: chữ mờ khi chưa chọn, sáng khi đang chọn */
+.tabs { border-bottom: 0; }
+.tabs button[aria-pressed=false] { filter: grayscale(.8) brightness(.75); }
+.tabs button[aria-pressed=true] { color: #ffe9a8; box-shadow: none; }
+
+input, select {
+  border: 2px solid #7a5a35;
+  border-radius: 2px;
+  background: #15110d;
+}
+
+.members li { border-bottom-style: dashed; }
+.player-card { border-radius: 2px; border-width: 2px; background: #0005; }
+
+/* Sân làng quanh đống lửa */
+.stage {
+  position: relative;
+  height: 400px;
+  border: 3px solid #2f2416;
+  background: radial-gradient(circle at 50% 50%, #a8c46a 0, #6f9a4a 38%, #44662f 100%);
+}
+#game[data-night=true] .stage { background: radial-gradient(circle at 50% 50%, #5a4a2a 0, #232c3f 32%, #10131f 100%); }
+.table-board, #game[data-night=true] .table-board { background: url("./assets/rpgui/background-image.png") repeat; min-height: 0; }
+.fire { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 3.2rem; filter: drop-shadow(0 0 16px #ffb340); }
+.seats { position: absolute; inset: 0; }
+.seat { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; width: 84px; text-align: center; color: #fff; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+.avatar { width: 38px; height: 38px; display: grid; place-items: center; border: 3px solid #1b140c; border-radius: 50% 50% 35% 35%; background: hsl(var(--hue) 58% 55%); font-size: 1.4rem; }
+.seat[data-self=true] .avatar { border-color: #ffe27a; box-shadow: 0 0 10px #ffe27a; }
+.seat[data-alive=false] { opacity: .65; }
+.seat[data-alive=false] .avatar { background: transparent; border-color: transparent; }
+.seat-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.2rem; font-weight: 400; line-height: 1.1; }
+.seat-tag { font-size: 1rem; color: #ffe27a; line-height: 1; }
+.seat-marks { font-size: .9rem; line-height: 1.2; }
+.seats[data-many=true] .seat { width: 60px; }
+.seats[data-many=true] .avatar { width: 28px; height: 28px; font-size: 1rem; }
+.seats[data-many=true] .seat-name { font-size: 1rem; }
+
+@media (max-width: 760px) {
+  .stage { height: 340px; }
+  .seat { width: 68px; }
+  .seats[data-many=true] .seat { width: 46px; }
+}
