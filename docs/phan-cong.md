@@ -4,6 +4,8 @@ Mỗi người làm trên nhánh của mình, mở pull request vào `dev`. Huy 
 
 ## Ưu tiên CP2 · 19:30 ngày 27/11
 
+[Checklist công việc CP2 theo từng người](cp2-cong-viec.md).
+
 Bản chạy CP2 là một ván Ma Sói mẫu 6 chỗ đi hết luồng bằng `python run.py`. Dùng NPC mock để chạy ổn định. Phần map, voice và kết nối model thật xếp ở lượt triển khai sau khi đã ghép bản CP2.
 
 | Người | Nhánh | Đầu ra cần ghép trước CP2 |
