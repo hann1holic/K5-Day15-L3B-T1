@@ -2,6 +2,23 @@
 
 Mỗi người làm trên nhánh của mình, mở pull request vào `dev`. Huy Anh ghép các phần trên `dev`, chạy thử rồi mở pull request từ `dev` vào `main` cho bản nộp checkpoint.
 
+## Ưu tiên CP2 · 19:30 ngày 27/11
+
+Bản chạy CP2 là một ván Ma Sói mẫu 6 chỗ đi hết luồng bằng `python run.py`. Dùng NPC mock để chạy ổn định. Phần map, voice và kết nối model thật xếp ở lượt triển khai sau khi đã ghép bản CP2.
+
+| Người | Nhánh | Đầu ra cần ghép trước CP2 |
+|---|---|---|
+| Lê Huy Anh | `feat/game-engine` | Viết sơ đồ và ranh giới AI trong `spec.md` §4. Chốt hợp đồng trạng thái, hành động và kết quả để Hùng, Dũng dùng chung. Làm luật tối thiểu đủ chạy ván mẫu. Lấy 3 ngưỡng số từ Khánh và ghi giống nhau vào §7. Cập nhật `canvas.md` với 1–3 dòng thay đổi từ CP1 và tiến độ bằng chứng thực tế. |
+| Dư Văn Hùng | `feat/ai-players` | Viết NPC mock trong `codebase/agent.py` theo hợp đồng ván. Với trạng thái của từng NPC, trả về lời thoại và mục tiêu hợp lệ để bộ máy game kiểm tra. Bàn giao một trạng thái mẫu cùng kết quả dự kiến cho Dũng và Khánh. Giữ hàm `answer(text)` để khung eval gọi được. |
+| Nguyễn Tấn Dũng | `feat/game-client` | Chỉnh `codebase/app.py` để lệnh `python run.py` từ gốc repo đi hết ván mẫu: mở ván, nói chuyện và vote ban ngày, sói vote rồi các vai dùng kỹ năng ban đêm, công bố kết quả và kết thúc ván. Dùng giao diện dòng lệnh cho lượt ghép CP2. |
+| Vũ Duy Khánh | `test/eval-and-cost` | Thay dòng mẫu trong `eval/benchmark.csv` bằng ít nhất 10 ca có đáp án và tiêu chí chấm. Điền ít nhất 3 metric trong `eval/metric_spec.yaml` và nguồn, cách dựng, giới hạn dữ liệu trong `data/DATA_CARD.md`. Ghi tiến độ phỏng vấn thực tế vào `evidence/summary.md` và gửi đúng các ngưỡng số cho Huy Anh. |
+
+**Sơ đồ cần thể hiện trong §4.** Người chơi hoặc NPC gửi hành động → bộ máy giữ trạng thái và chọn đúng thông tin được phép xem → NPC mock đề xuất lời thoại và phiếu → bộ máy kiểm luật, áp dụng hành động và phát kết quả. Bản dùng model thật thay thành phần mock trong cùng luồng.
+
+**Ba ngưỡng đề xuất để nhóm duyệt trước khi chốt.** 100% hành động NPC được chấp nhận đúng lượt và đúng mục tiêu hợp lệ, 100% ca kiểm tra thông tin bí mật không lộ dữ kiện ngoài vai, và ít nhất 80% ca có lý do bỏ phiếu bám thông tin NPC được phép biết. Ghi rõ cách chấm và tập ca áp dụng cho từng chỉ số. Khánh và Huy Anh đối chiếu hai file trước khi ghép. Giữ nguyên ngưỡng đã nộp sau 19:30.
+
+**Trước khi nộp.** Ghép các PR vào `dev`, chạy `python run.py` và `python run.py check`. Kiểm tra có sơ đồ §4, ngưỡng số §7, ít nhất 10 ca, ít nhất 3 metric, Data Card và Canvas đã cập nhật. Huy Anh ghép bản CP2 vào `main` và gửi form với link repo, spec, benchmark, ngưỡng đạt và tiến độ bằng chứng.
+
 ## Lê Huy Anh · Luật và bộ máy ván
 
 **Nhánh** `feat/game-engine`
