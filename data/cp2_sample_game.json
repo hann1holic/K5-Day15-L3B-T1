@@ -1,0 +1,168 @@
+{
+  "fixture_id": "CP2-GAME-01",
+  "source": "Dữ liệu tự dựng cho bản chạy thử CP2.",
+  "setup": {
+    "first_phase": "night",
+    "players": [
+      {
+        "player_id": "P01",
+        "controller": "human",
+        "role": "dan",
+        "faction": "dan"
+      },
+      {
+        "player_id": "P02",
+        "controller": "mock",
+        "role": "soi_thuong",
+        "faction": "soi"
+      },
+      {
+        "player_id": "P03",
+        "controller": "mock",
+        "role": "dan",
+        "faction": "dan"
+      },
+      {
+        "player_id": "P04",
+        "controller": "mock",
+        "role": "tien_tri",
+        "faction": "dan"
+      },
+      {
+        "player_id": "P05",
+        "controller": "mock",
+        "role": "soi_thuong",
+        "faction": "soi"
+      },
+      {
+        "player_id": "P06",
+        "controller": "mock",
+        "role": "bao_ve",
+        "faction": "dan"
+      }
+    ]
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "night": {
+        "wolf_votes": {
+          "P02": "P04",
+          "P05": "P04"
+        },
+        "role_actions": [
+          {
+            "player_id": "P06",
+            "type": "protect",
+            "target_id": "P01"
+          },
+          {
+            "player_id": "P04",
+            "type": "inspect",
+            "target_id": "P05"
+          }
+        ],
+        "expected": {
+          "wolf_target": "P04",
+          "deaths": [
+            "P04"
+          ]
+        }
+      },
+      "day": {
+        "votes": {
+          "P01": "P05",
+          "P02": "P03",
+          "P03": "P05",
+          "P05": "P03",
+          "P06": "P05"
+        },
+        "expected": {
+          "eliminated": "P05",
+          "winner": null
+        }
+      }
+    },
+    {
+      "round": 2,
+      "night": {
+        "wolf_votes": {
+          "P02": "P01"
+        },
+        "role_actions": [
+          {
+            "player_id": "P06",
+            "type": "protect",
+            "target_id": "P01"
+          }
+        ],
+        "expected": {
+          "wolf_target": "P01",
+          "deaths": []
+        }
+      },
+      "day": {
+        "votes": {
+          "P01": "P02",
+          "P02": "P03",
+          "P03": "P02",
+          "P06": "P02"
+        },
+        "expected": {
+          "eliminated": "P02",
+          "winner": "dan"
+        }
+      }
+    }
+  ],
+  "day_vote_case": {
+    "view": {
+      "round": 1,
+      "phase": "day_vote",
+      "player_id": "P03",
+      "role": "dan",
+      "faction": "dan",
+      "public_chat": [
+        {
+          "player_id": "P05",
+          "text": "Tôi chưa nghi P03."
+        },
+        {
+          "player_id": "P05",
+          "text": "Tôi nghi P03 từ đầu."
+        }
+      ],
+      "allowed_actions": [
+        {
+          "type": "vote",
+          "target_ids": [
+            "P01",
+            "P02",
+            "P05",
+            "P06"
+          ]
+        }
+      ]
+    },
+    "valid_example": {
+      "action": {
+        "type": "vote",
+        "target_id": "P05"
+      },
+      "expected": {
+        "accepted": true,
+        "phase": "day_vote"
+      }
+    },
+    "invalid_example": {
+      "action": {
+        "type": "vote",
+        "target_id": "P04"
+      },
+      "expected": {
+        "accepted": false,
+        "phase": "day_vote"
+      }
+    }
+  }
+}

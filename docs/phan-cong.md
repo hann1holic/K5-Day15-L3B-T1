@@ -28,40 +28,16 @@ Bản chạy CP2 là một ván Ma Sói mẫu 6 chỗ đi hết luồng bằng `
 | Dũng · `feat/game-client` | Nhận trạng thái đã lọc từ bộ máy và thao tác người chơi như nhập chat, chọn mục tiêu, bỏ phiếu. | Gửi hành động của người chơi về bộ máy theo cùng định dạng với NPC. Hiển thị pha ngày–đêm, nút có thể dùng, kết quả và phe thắng. Bàn giao lệnh `python run.py` chạy hết ván mock từ thư mục gốc. |
 | Khánh · `test/eval-and-cost` | Luật và kết quả đúng từ Huy Anh, mẫu đầu vào/đầu ra từ Hùng, bản chạy từ Dũng và ghi chép phỏng vấn đã ẩn danh. | Nộp ít nhất 10 ca trong `eval/benchmark.csv`, ít nhất 3 metric trong `eval/metric_spec.yaml`, `data/DATA_CARD.md` và tiến độ bằng chứng. Gửi riêng Huy Anh bảng ngưỡng bằng số để chép nguyên vào `spec.md` §7. |
 
-### Ví dụ giao diện dữ liệu cho một lượt vote
+### Dữ liệu mẫu để tích hợp
 
-Đây là mẫu thống nhất để làm song song. Huy Anh ghi bản chốt vào `docs/giao-dien-van.md`.
+File [ván mẫu CP2](../data/cp2_sample_game.json) là fixture giả lập gồm 6 người và 2 vòng. Kịch bản dùng một người chơi và năm NPC mock. Phe Tình Nhân xuất hiện ở các ca thử riêng. Danh sách vai trong `setup.players` là dữ liệu nội bộ của bộ máy và đáp án của người kiểm thử.
 
-Bộ máy gửi cho người đang hành động:
+- Huy Anh dùng `setup` và `rounds` để dựng ván, kiểm tra kết quả từng pha và ghi hợp đồng chính thức vào `docs/giao-dien-van.md`.
+- Hùng dùng `day_vote_case.view` làm đầu vào NPC. Mẫu hành động là `{"type":"vote","target_id":"P05"}`. Phần `setup` và đáp án chỉ phục vụ bộ máy và kiểm thử.
+- Dũng dùng cùng trạng thái theo góc nhìn người chơi để thử giao diện. Khi ghép, giao diện nhận trạng thái từ bộ máy và gửi hành động chọn được về bộ máy.
+- Khánh lấy hai trường hợp trong `day_vote_case` để viết ca vote hợp lệ và ca vote nhầm người đã bị loại. Các kết quả trong `rounds` là đáp án kiểm tra ván giả lập.
 
-```json
-{
-  "round": 1,
-  "phase": "day_vote",
-  "player_id": "P03",
-  "role": "dan",
-  "faction": "dan",
-  "public_chat": [
-    {"player_id": "P04", "text": "Tôi chưa nghi P02."},
-    {"player_id": "P04", "text": "Tôi nghi P02 từ đầu."}
-  ],
-  "allowed_actions": [{"type": "vote", "target_ids": ["P01", "P04"]}]
-}
-```
-
-NPC hoặc giao diện gửi đề xuất hành động về bộ máy. Danh tính người gửi lấy từ lượt NPC đang chạy hoặc phiên người chơi.
-
-```json
-{"type": "vote", "target_id": "P04"}
-```
-
-Bộ máy kiểm tra lượt và mục tiêu rồi trả kết quả cho người gửi. Trạng thái và lịch sử chuyển cho mỗi người tiếp tục áp dụng quyền xem của người đó.
-
-```json
-{"accepted": true, "phase": "day_vote"}
-```
-
-Trong ca đánh giá NPC tương ứng, Khánh ghi tiêu chí theo tập đáp án hợp lệ, ví dụ phiếu phải nhắm `P01` hoặc `P04`. Nếu ca kiểm lý do chọn `P04`, lý do có thể viện dẫn hai lời khai mâu thuẫn đã xuất hiện công khai. Với ca kiểm bộ máy, Khánh gửi thêm phiếu nhắm người đã bị loại và kiểm kết quả là từ chối.
+File này chứa dữ liệu để bắt đầu triển khai. Bộ máy và `python run.py` sẽ đọc dữ liệu hoặc dựng trạng thái tương đương khi các phần đã được ghép.
 
 ## Lê Huy Anh · Luật và bộ máy ván
 
