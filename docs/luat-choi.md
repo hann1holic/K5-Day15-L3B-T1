@@ -45,14 +45,14 @@ Cuối đêm, server xử lý cú cắn sau Bảo vệ và bình cứu, áp dụ
 2. **Tập trung ở phòng khách.** Những người còn sống lần lượt xuất hiện ở phòng khách. Người chơi tự đối chiếu ai có mặt và ai vắng để suy ra người đã chết. Trong pha tập trung, server chỉ công bố người vừa xuất hiện. Danh sách người chết và trạng thái sống/chết của toàn bàn được giữ kín trong pha này.
 3. **Lucky Day.** Vào ngày 2, 4, 6 và các ngày chẵn tiếp theo, sau khi mọi người đã tập trung và ván vẫn tiếp diễn, người sống có 30 giây để đi tìm vật phẩm. Mỗi lượt có một khiên và một gươm. Mỗi người giữ tối đa một món, có hiệu lực trong cuộc bỏ phiếu ngày đó. NPC cũng được tìm đồ.
 4. **Thảo luận.** Sau khi tập trung, hoặc khi hết Lucky Day, server đưa người sống tới quảng trường. Mọi người ở nguyên quảng trường để nói chuyện chung, nhắn riêng và bỏ phiếu.
-5. **Bỏ phiếu loại.** Hết giờ thảo luận, mỗi người còn sống bỏ một phiếu cho một người còn sống khác. Có thể đổi phiếu trước khi khóa. Phiếu khóa khi hết giờ, hoặc ngay khi mọi người còn sống đã bỏ phiếu. Người nhiều phiếu nhất bị treo cổ. Hòa ở vị trí cao nhất hoặc cả bàn bỏ lượt thì ngày đó không ai bị loại.
+5. **Bỏ phiếu loại.** Hết giờ thảo luận, mỗi người còn sống bỏ một phiếu cho một người còn sống khác. Có thể đổi phiếu trước khi khóa. Phiếu khóa khi hết giờ, hoặc ngay khi mọi người còn sống đã bỏ phiếu. Người dẫn đầu duy nhất bị dân làng ném vào đống lửa ở quảng trường. Cả phòng thấy cảnh này. Hòa ở vị trí cao nhất hoặc cả bàn bỏ lượt thì ngày đó không ai bị loại.
    - **Gươm:** Phiếu của người cầm gươm được tính 2.
    - **Khiên:** Nếu mục tiêu có điểm cao nhất duy nhất đang giữ khiên, không ai bị loại bằng phiếu trong ngày đó. Vật phẩm không chặn cú cắn, bình độc hay hiệu ứng chết theo. Server chỉ công bố vật phẩm đã phát huy tác dụng sau khi khóa phiếu.
 6. **Chuyển vòng.** Sau khi xử lý việc loại người và tất cả hiệu ứng chết theo, server xét thắng. Nếu ván chưa kết thúc, đêm tiếp theo bắt đầu.
 
 ## 4. Chết dây chuyền và điều kiện thắng
 
-Nếu một Tình Nhân chết, người còn lại chết theo. Nếu Thợ săn chết, người đang bị ghim cũng chết nếu còn sống. Server xử lý hết chuỗi và chỉ ghi mỗi người chết một lần. Xét thắng sau khi xử lý hết kết quả đêm hoặc lần treo cổ ban ngày.
+Nếu một Tình Nhân chết, người còn lại chết theo. Nếu Thợ săn chết, người đang bị ghim cũng chết nếu còn sống. Server xử lý hết chuỗi và chỉ ghi mỗi người chết một lần. Xét thắng sau khi xử lý hết kết quả đêm hoặc kết quả bỏ phiếu ban ngày.
 
 1. **Tình Nhân thắng** nếu cả cặp còn sống và số Tình Nhân bằng hoặc lớn hơn tổng số Sói và Dân còn sống. Điều kiện này được xét trước Sói.
 2. **Sói thắng** nếu còn ít nhất một Sói và số Sói bằng hoặc lớn hơn tổng số Dân và Tình Nhân còn sống.

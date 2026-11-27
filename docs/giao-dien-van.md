@@ -52,6 +52,15 @@ Hai pha dưới đây nằm trong WebSocket `state`. Bộ máy terminal tiếp t
 
 Ở `day_arrival`, `deadline` là `null`, `allowed_actions` và `last_deaths` rỗng, `winner` và `reveal` là `null`. Trường `players` duy trì trạng thái công khai trước khi xử lý cái chết trong đêm. Giao diện dùng `arrivals` để hiện người vừa xuất hiện, rồi dùng `you_died` và `phase_id` để báo riêng một lần. Người vào lại giữa pha nhận danh sách đã tập trung và tín hiệu riêng của chính mình.
 
+## Tín hiệu hiệu ứng loại người
+
+| `view.effect.type` | Ai nhận và chạy lúc nào |
+|---|---|
+| `night_slash` | Chỉ người chết trong đêm nhận lúc bắt đầu `day_arrival`. Hiện một nhát chém ngang màn hình của người đó. Những người còn lại tiếp tục thấy danh sách người tới phòng khách theo từng đợt. |
+| `vote_execution` | Cả phòng nhận cùng ID sự kiện và `player_id` của người bị loại trực tiếp bằng phiếu. Hiện cảnh dân làng ném người đó vào đống lửa ở quảng trường. Người chết dây chuyền không có cảnh riêng. Nếu hòa, bỏ lượt hoặc khiên chặn phiếu loại thì không có sự kiện này. |
+
+Dũng dùng `view.effect.id` để phát mỗi hiệu ứng một lần trong phòng kể cả khi server gửi lại cùng trạng thái. Trong 2 giây dành cho `vote_execution`, `view.phase` vẫn là `day_vote`, `allowed_actions` rỗng, `deadline` cho biết lúc kết thúc cảnh. Giữ quảng trường cho đến khi server gửi pha kế tiếp. Server gửi đêm mới hoặc công bố phe thắng sau khoảng này. Tín hiệu hết hiệu lực khi `view.effect` biến mất.
+
 ## Workflow map, nhà ngủ và Lucky Day
 
 Frontend đang ghép map có thể tạo phòng bằng `{"type":"create_room","name":"Lan","seats":6,"village":true}`. Phòng cũ mặc định dùng luồng hiện tại. Trạng thái phòng chờ có `village_enabled`. Pha map dùng cùng WebSocket và cùng `phase_id`, gửi trong phong bì `{"type":"action","phase_id":7,"action":{...}}`.

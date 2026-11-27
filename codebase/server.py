@@ -29,6 +29,7 @@ MAX_CHAT_LENGTH = 200
 BOT_TIMEOUT = 5
 PREPARE_SECONDS = 5
 DAWN_STEP_SECONDS = 0.7
+VOTE_EXECUTION_SECONDS = 2
 HOUSING_SECONDS = 15
 LUCKY_DAY_SECONDS = 30
 MAP_UPDATE_SECONDS = 0.2
@@ -338,6 +339,7 @@ class GameServer:
                     remaining = max(0, end - asyncio.get_running_loop().time())
                     with suppress(asyncio.TimeoutError):
                         await asyncio.wait_for(room.ready.wait(), timeout=remaining)
+                execution_end = None
                 async with room.lock:
                     room.accepting = False
                     # Bots whose model call ran out of time still take a legal default.
@@ -347,12 +349,24 @@ class GameServer:
                         if action is not None:
                             engine.submit_action(pid, action)
                     dawn_views = room.capture_dawn_views() if phase == "night_hunter" else None
+                    before_vote = engine.view(next(iter(room.names))) if phase == "day_vote" else None
                     engine.advance()
-                    if phase == "day_vote" and room.village is not None:
-                        room.village.held.clear()
+                    if before_vote is not None:
+                        if room.village is not None:
+                            room.village.held.clear()
+                        victim = engine.view(before_vote["player_id"])["eliminated"]
+                        if victim is not None:
+                            execution_end = asyncio.get_running_loop().time() + VOTE_EXECUTION_SECONDS
+                            deadline = int((time.time() + VOTE_EXECUTION_SECONDS) * 1000)
+                            room.begin_vote_execution(before_vote, victim, deadline)
+                            await self._broadcast(room)
                     if dawn_views is not None:
                         room.begin_dawn(dawn_views)
                 await self._cancel_bots(room)
+                if execution_end is not None:
+                    await asyncio.sleep(max(0, execution_end - asyncio.get_running_loop().time()))
+                    async with room.lock:
+                        room.vote_execution = None
                 if dawn_views is not None:
                     await self._play_dawn(room)
                     if room.village is not None and engine.phase == "day_discussion":
