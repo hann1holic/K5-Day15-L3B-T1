@@ -14,8 +14,8 @@ Quyền vote cắn thuộc về phe Sói hiện tại. Một người có vai g�
 
 ### Về nhà trong 15 giây
 
-- Đêm đầu, người chơi có 15 giây để tới cửa một căn còn trống và bấm **F**. Server gán nhà cho yêu cầu hợp lệ đến trước. Ai chưa có nhà khi hết giờ được đưa ngẫu nhiên vào một căn còn trống.
-- Mỗi người sống có tối đa một nhà. Những đêm sau, bấm **F** ở nhà của mình để vào. Nếu đang ở ngoài lúc hết giờ, server đưa người chơi về nhà đã gán.
+- Đêm đầu, người chơi có 15 giây để tới ô ngay trước cửa một căn còn trống và bấm **F**. Server gán nhà cho yêu cầu hợp lệ đến trước. Ai chưa có nhà khi hết giờ được đưa ngẫu nhiên vào một căn còn trống.
+- Mỗi người sống có tối đa một nhà. Những đêm sau, bấm **F** ở ô trước cửa nhà mình để vào. Nếu đang ở ngoài lúc hết giờ, server đưa người chơi về nhà đã gán. NPC cũng đi bộ về nhà và vào cửa như người chơi. Đã vào nhà thì ở yên đến lượt tiếp theo. Người chơi không thể đi xuyên nhà, kể cả nhà của mình.
 - Khi chủ nhà chết, quyền sở hữu được thu hồi lúc mở lượt về nhà tiếp theo. Người khác có thể bấm **F** nhận căn này. Nhận nhà mới sẽ trả nhà cũ. Cửa của người vẫn còn sống chỉ chủ nhà được vào.
 - Lâu đài, biệt thự, nhà cấp 4 và nhà tranh dùng chung luật. Khi mọi người đã được đưa về nhà, server bắt đầu gọi Cupid nếu là lượt ghép đôi, hoặc gọi Sói.
 

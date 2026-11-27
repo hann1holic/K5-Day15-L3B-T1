@@ -1,10 +1,13 @@
 """Authoritative map actions for the optional village workflow."""
 
+from collections import deque
+
 WIDTH = 24
 HEIGHT = 20
 SQUARE = (11, 9)
 BONFIRE_OFFSETS = ((-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0))
 MOVE_INTERVAL = 0.10
+MOVE_JITTER_ALLOWANCE = 0.20
 VISION_RADIUS = 3
 INTERACT_RADIUS = 1
 DIRECTIONS = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -14,10 +17,16 @@ HOUSE_DOORS = {
     for row, y in enumerate((2, 6, 13, 17))
     for col, x in enumerate((2, 6, 10, 14, 18))
 }
-DOOR_TILES = {(x, y) for x, y, _ in HOUSE_DOORS.values()}
+HOUSE_ENTRANCES = {house: (x, y + 1) for house, (x, y, _) in HOUSE_DOORS.items()}
+BLOCKED_TILES = {
+    (x + dx, y + dy)
+    for x, y, _ in HOUSE_DOORS.values()
+    for dx in (-1, 0, 1)
+    for dy in (-1, 0)
+}
 SEARCH_TILES = tuple(
     (x, y) for x in range(WIDTH) for y in range(HEIGHT)
-    if (x, y) not in DOOR_TILES
+    if (x, y) not in BLOCKED_TILES
     and abs(x - SQUARE[0]) + abs(y - SQUARE[1]) >= 4
 )
 ITEM_KINDS = ("shield", "sword")
@@ -25,6 +34,29 @@ ITEM_KINDS = ("shield", "sword")
 
 def distance(first, second):
     return abs(first[0] - second[0]) + abs(first[1] - second[1])
+
+
+def walking_steps(point):
+    x, y = point
+    for dx, dy in DIRECTIONS:
+        target = (x + dx, y + dy)
+        if 0 <= target[0] < WIDTH and 0 <= target[1] < HEIGHT and target not in BLOCKED_TILES:
+            yield target, (dx, dy)
+
+
+def route_to(start, destinations):
+    """Return the closest reachable destination and the first step toward it."""
+    frontier = deque([start])
+    first_step = {start: None}
+    while frontier and destinations:
+        point = frontier.popleft()
+        if point in destinations:
+            return point, first_step[point]
+        for target, direction in walking_steps(point):
+            if target not in first_step:
+                first_step[target] = first_step[point] or direction
+                frontier.append(target)
+    return None, None
 
 
 class Village:
@@ -35,6 +67,7 @@ class Village:
         self.positions = {}
         self.sleeping = set()
         self.items = {}
+        self.bot_item_targets = {}
         self.held = {}
         self.next_move = {}
         self.dirty = False
@@ -64,12 +97,14 @@ class Village:
         self.phase = "lucky_day"
         self.go_to_square(alive)
         self.held.clear()
+        self.bot_item_targets.clear()
         self.items = dict(zip(ITEM_KINDS, self.rng.sample(SEARCH_TILES, len(ITEM_KINDS))))
 
     def finish_lucky_day(self):
         self.phase = None
         self.go_to_square(self.positions)
         self.items.clear()
+        self.bot_item_targets.clear()
         return self.held.copy()
 
     def allowed_actions(self, pid):
@@ -101,14 +136,17 @@ class Village:
     def _move(self, pid, dx, dy, now):
         if type(dx) is not int or type(dy) is not int or (dx, dy) not in DIRECTIONS:
             return "invalid_move"
-        if now < self.next_move.get(pid, 0):
+        due = self.next_move.get(pid, 0)
+        if now < due - MOVE_JITTER_ALLOWANCE:
             return "move_too_fast"
         x, y = self.positions[pid]
         target = (x + dx, y + dy)
         if not (0 <= target[0] < WIDTH and 0 <= target[1] < HEIGHT):
             return "outside_map"
+        if target in BLOCKED_TILES:
+            return "blocked_tile"
         self.positions[pid] = target
-        self.next_move[pid] = now + MOVE_INTERVAL
+        self.next_move[pid] = max(due, now) + MOVE_INTERVAL
         return None
 
     def _enter_house(self, pid, house):
@@ -116,11 +154,10 @@ class Village:
             return "invalid_target"
         if house in self.homes.values() and self.homes.get(pid) != house:
             return "house_taken"
-        door = HOUSE_DOORS[house][:2]
-        if distance(self.positions[pid], door) > INTERACT_RADIUS:
+        if self.positions[pid] != HOUSE_ENTRANCES[house]:
             return "too_far"
         self.homes[pid] = house
-        self.positions[pid] = door
+        self.positions[pid] = HOUSE_DOORS[house][:2]
         self.sleeping.add(pid)
         return None
 
@@ -133,22 +170,44 @@ class Village:
         del self.items[item]
         return None
 
+    def bots_go_home(self, bots, now):
+        available = set(HOUSE_DOORS) - set(self.homes.values())
+        for pid in sorted((bots & self.positions.keys()) - self.sleeping):
+            home = self.homes.get(pid)
+            candidates = (home,) if home else available
+            entrances = {HOUSE_ENTRANCES[house]: house for house in candidates}
+            entrance, direction = route_to(self.positions[pid], entrances)
+            if entrance is None:
+                continue
+            house = entrances[entrance]
+            available.discard(house)
+            if direction is None:
+                self.act(pid, {"type": "enter_house", "house_id": house}, now)
+            else:
+                dx, dy = direction
+                self.act(pid, {"type": "move", "dx": dx, "dy": dy}, now)
+
     def bots_search(self, bots, now):
         for pid in sorted((bots & self.positions.keys()) - self.held.keys()):
             point = self.positions[pid]
-            nearby = sorted((distance(point, tile), kind) for kind, tile in self.items.items()
-                            if distance(point, tile) <= VISION_RADIUS)
-            if nearby and nearby[0][0] <= INTERACT_RADIUS:
-                self.act(pid, {"type": "pick_up", "item_id": nearby[0][1]}, now)
-                continue
-            x, y = point
-            choices = [(dx, dy) for dx, dy in DIRECTIONS if 0 <= x + dx < WIDTH and 0 <= y + dy < HEIGHT]
-            if nearby:
-                target = self.items[nearby[0][1]]
-                dx, dy = min(choices, key=lambda step: distance((x + step[0], y + step[1]), target))
+            kind = self.bot_item_targets.get(pid)
+            if kind not in self.items:
+                nearby = min(((distance(point, tile), item) for item, tile in self.items.items()
+                              if distance(point, tile) <= VISION_RADIUS), default=None)
+                kind = nearby[1] if nearby else None
+                self.bot_item_targets[pid] = kind
+            if kind is not None:
+                destination = self.items[kind]
+                if distance(point, destination) <= INTERACT_RADIUS:
+                    self.act(pid, {"type": "pick_up", "item_id": kind}, now)
+                    continue
+                _, direction = route_to(point, {destination})
             else:
-                dx, dy = self.rng.choice(choices)
-            self.act(pid, {"type": "move", "dx": dx, "dy": dy}, now)
+                choices = [direction for _, direction in walking_steps(point)]
+                direction = self.rng.choice(choices) if choices else None
+            if direction is not None:
+                dx, dy = direction
+                self.act(pid, {"type": "move", "dx": dx, "dy": dy}, now)
 
     def view(self, pid, phase, wolf_pack=()):
         inside = pid in self.sleeping and phase != "night_wolf" and (
@@ -159,6 +218,7 @@ class Village:
             positions[wolf["player_id"]] = (SQUARE[0] + dx, SQUARE[1] + dy)
         view = {
             "size": {"width": WIDTH, "height": HEIGHT},
+            "blocked_tiles": [{"x": x, "y": y} for x, y in sorted(BLOCKED_TILES)],
             "square": {"x": SQUARE[0], "y": SQUARE[1]},
             "positions": {key: {"x": x, "y": y} for key, (x, y) in positions.items()},
             "home_id": self.homes.get(pid),
