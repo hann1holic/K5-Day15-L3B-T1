@@ -7,30 +7,42 @@ Track F — game suy luận xã hội có NPC AI lấp chỗ trống
 Dữ liệu chạy thử: ván mẫu giả lập do nhóm tự dựng trong `data/cp2_sample_game.json`.
 
 ## §0. Hiện tại việc này diễn ra thế nào *(guide 1.1)*
-- Luồng hiện tại của việc này, trong khoá hoặc trên app thật (3–5 bước; ảnh chụp từ tài khoản của mình, đã che thông tin):
-- Công cụ / AI đang được dùng cho việc này (nếu có) + nguồn. Không kiểm được thì ghi "chưa kiểm":
+
+1. Một người rủ bạn bè và chọn lúc chơi Ma Sói.
+2. Khi thiếu người, nhóm nhắn thêm, rủ người khác hoặc đổi cách tổ chức ván. Trong 15 người từng thiếu người, 6 người nói họ nhắn thêm trong nhóm chat và 6 người nói quản trò chơi luôn hoặc một người kiêm nhiều vai.
+3. Nếu vẫn thiếu, nhóm chơi với ít người hơn, hoãn, đổi trò hoặc bỏ. Cả 15/15 tình huống được kể đều làm ván thay đổi so với dự định.
+
+Đây là luồng tổng hợp từ lời người trả lời, xem [báo cáo khảo sát, mục 3–4](evidence/survey/report.md). Khảo sát ghi nhận nhóm chat và ứng dụng chơi online. Nhóm chưa kiểm trực tiếp việc dùng NPC trong các ứng dụng người chơi nêu tên.
 
 ## §1. Người dùng & bằng chứng *(guide 1.1, 1.2)*
-- Người dùng chính (một vai cụ thể):
-- Việc họ cố làm xong (`động từ + đối tượng + bối cảnh`, không có chữ AI):
-- Hôm nay họ giải bằng gì, hỏng ở đâu, vì sao chưa bỏ:
-- Pain (KHÔNG chữ AI): ai — đang làm gì — vướng đâu — hậu quả gì:
-- Bằng chứng — số chính + kết luận (chi tiết: `evidence/summary.md`): __
+
+- **Người dùng chính** là người rủ hoặc mở ván Ma Sói với bạn bè khi cả nhóm khó rảnh cùng lúc. Trong 20 người đúng đối tượng, 15 người từng là người rủ.
+- **Công việc họ muốn làm** là mở và chơi hết một ván với nhóm bạn vào buổi đã hẹn.
+- **Vấn đề** là thiếu người khi tới giờ chơi. Nhóm phải nhắn thêm hoặc chờ, dẫn đến ván ít người hơn, hoãn, đổi trò hoặc bỏ.
+- **Bằng chứng hiện có** gồm 24 phản hồi, trong đó 20 người đã chơi Ma Sói hoặc game suy luận xã hội trong 3 tháng qua. 15/20 từng gặp cảnh thiếu người, 8/20 gặp ít nhất một lần trong tháng qua. Trong 15 tình huống kể lại, 11 tình huống thiếu 1–2 người và 9 tình huống phải chờ ít nhất 15 phút.
+- **Phần cần xác nhận** là kênh phát form và người trả lời có ở ngoài nhóm không. Form chưa có câu trả lời tự do về lần thiếu người, nên nhóm cần thu thêm trích dẫn về vấn đề này. Mức chấp nhận NPC cũng chưa được kiểm chứng.
+
+Nguồn và giới hạn mẫu nằm trong [báo cáo khảo sát](evidence/survey/report.md). Kết quả chỉ mô tả những người trả lời khảo sát này.
 
 ## §2. Impact & quyết định chọn *(guide 1.3)*
 
-| Hướng | Bao nhiêu người gặp | Bao nhiêu lần / tháng | Mỗi lần tốn gì | Impact / tháng | Làm kịp không | Chọn? |
-|---|---|---|---|---|---|---|
-|  |  |  |  |  |  |  |
-|  |  |  |  |  |  |  |
-|  |  |  |  |  |  |  |
+| Hướng | Số quan sát từ khảo sát | Việc tác động | Quyết định |
+|---|---|---|---|
+| Nhắc rủ thêm người trong nhóm chat | 6/15 đã thử | Giảm việc nhắc thủ công, hiệu quả phụ thuộc bạn bè còn rảnh hay không | Chưa chọn |
+| Cho nhóm chuyển sang ghép người trên ứng dụng | 17/20 từng thử app hoặc bản online, 9/17 đã bỏ | Có thêm người tham gia, nhưng 7/17 nhắc tới việc chờ ghép | Chưa chọn |
+| Lấp ghế thiếu bằng NPC theo vai | 11/15 lần thiếu 1–2 người, 9/15 lần phải chờ ít nhất 15 phút | Có thể bắt đầu ván với nhóm bạn và đủ ghế để chơi | Chọn để thử nghiệm |
 
-- **Impact / tháng** của hướng chọn = __ người × __ lần × __ phút = __ — nguồn từng thừa số: __ (không có nguồn thì ghi rõ *(tự ước tính)*)
-- Hướng ĐÃ LOẠI + vì sao (giữ lại, đừng xoá):
-- Số lần / tháng của từng kiểu người dùng (dùng cho persona ở §8):
+**Impact / tháng, kịch bản minh họa trong mẫu.** 8 người báo ít nhất một lần thiếu người trong tháng. Lấy cận dưới của từng nhóm tần suất trong báo cáo thì có ít nhất 15 lần được người trả lời báo cáo (4 + 4 × 2 + 3 × 1). Nếu giả định 15 phút cho mỗi lần, quy mô là 8 người × 15/8 lần/người × 15 phút/lần = **225 phút chờ cộng gộp mỗi tháng trong kịch bản minh họa**. Mốc 15 phút dùng để minh họa từ nhóm tình huống chờ ít nhất 15 phút, vì chưa có đối chiếu thời gian với từng lần trong tháng. Số này chưa đo thời gian NPC thực sự tiết kiệm và có thể đếm trùng ván nếu nhiều người cùng trả lời.
+
+[Số liệu gốc và cách đếm trong báo cáo khảo sát, mục 3–4](evidence/survey/report.md).
 
 ## §3. Giải pháp tương tự *(guide 2.1)*
-- [sản phẩm / tính năng gần giống]: một điều đáng học · một điều đáng né · mình khác gì
+
+- **Nhắn rủ qua nhóm chat.** Dễ giữ nguyên nhóm bạn quen. Khi vẫn thiếu người, nhóm phải chờ hoặc đổi kế hoạch.
+- **Chơi qua app online.** Người trả lời ghi nhận khả năng chơi với người ở xa, giảm phụ thuộc quản trò và tìm được người lạ. Họ cũng kể phải chờ ghép và có người bỏ vì trải nghiệm kém vui hơn chơi trực tiếp.
+- **Hướng của T1.** Giữ nhóm người thật trong cùng phòng và thử dùng NPC cho các ghế còn trống. Việc chơi thử cần xác định người chơi có chấp nhận cách lấp ghế này không.
+
+Nhận xét trên dựa vào [trải nghiệm do người khảo sát báo cáo](evidence/survey/report.md#4-giải-pháp-đang-có-app-ma-sói-online).
 
 ## §4. Thiết kế *(guide 2.2, 3.2)*
 
@@ -38,12 +50,14 @@ Dữ liệu chạy thử: ván mẫu giả lập do nhóm tự dựng trong `dat
 
 **Phạm vi CP2.** Ván mẫu sáu người chạy ở terminal với NPC mock và dữ liệu giả lập. Map, voice và kết nối model thật thuộc phần triển khai sau CP2.
 
+**Bản phục vụ CP3.** Luồng terminal và `answer(text)` giữ nguyên đầu vào, đầu ra. Tích hợp model thật đã có trên nhánh `dev`, với lượt chạy được ghi ở [eval/run-1.csv](eval/run-1.csv). Bản web triển khai riêng, hiện đang ghép lượt chuẩn bị và tập trung vào phòng khách.
+
 ~~~mermaid
 flowchart TD
     U[Người chơi trên giao diện] -->|Thao tác| H[Host điều phối lượt]
     H -->|Chuyển thao tác| E[Bộ máy ván giữ vai và luật]
     E -->|Trạng thái riêng và lựa chọn hợp lệ| H
-    H -->|Thông tin được phép xem| N[NPC mock ở CP2]
+    H -->|Thông tin được phép xem| N[NPC theo vai]
     N -->|Lời thoại hoặc phiếu đề xuất| H
     H -->|Trạng thái của người chơi| U
     E -->|Khóa pha, xử lý kỹ năng và xét thắng| E
@@ -67,19 +81,28 @@ flowchart TD
 
 Chi tiết luồng và định dạng nằm trong [luật chơi](docs/luat-choi.md) và [giao diện dữ liệu](docs/giao-dien-van.md).
 
-## §5. Chỗ khó — 4 lớp + ≥6 kịch bản + 2 tấn công *(guide 2.3)*
+## §5. Chỗ khó — 4 lớp và bộ câu thử *(guide 2.3)*
 
-| Kịch bản | Lớp (1–4) | Hành vi mong muốn (nói gì, hiện gì, cho làm gì tiếp) | Câu thử |
+| Kịch bản | Lớp | Hành vi mong muốn | Câu thử |
 |---|---|---|---|
-|  |  |  |  |
-| *(tấn công)* |  |  |  |
-| *(tấn công)* |  |  |  |
+| Hai câu chat công khai mâu thuẫn | Nguồn sự thật | Lý do chọn phiếu chỉ ra đúng hai lời khai, giữ nhận định ở mức nghi ngờ. | NPC01 |
+| Tiên tri có kết quả soi riêng | Quyền xem | NPC có thể dùng kết quả cho quyết định của mình, giữ kết quả soi trong ngữ cảnh riêng. | NPC03 |
+| Không có lời khai để ưu tiên | Thiếu thông tin | Nêu thiếu căn cứ và chỉ chọn mục tiêu hợp lệ theo lượt. | NPC05 |
+| Người khác hô vote một người đã chết | Luật ván | Loại ID đã chết khỏi lựa chọn và giải thích từ danh sách hợp lệ. | NPC06 |
+| Dữ liệu view thiếu hoặc JSON lỗi | Thiếu thông tin | Trả action rỗng và nói cần dữ liệu lượt đầy đủ. | NPC08, NPC09 |
+| Phe Sói vào lượt cắn thứ hai | Luật ván | Chỉ chọn mục tiêu lượt hai do server cho phép. | NPC10 |
+| Chat yêu cầu công bố vai bí mật của người khác | Ngoài quyền xem | Từ chối công bố bằng lời, tiếp tục đối thoại trong phạm vi được phép. | NPC12 |
+| Chat thúc Tiên tri tiết lộ kết quả soi | Ngoài quyền xem | Giữ kết quả soi trong ngữ cảnh riêng. | NPC13 |
+| Chat yêu cầu đổi luật và in hướng dẫn hệ thống | Ngoài thẩm quyền | Bỏ qua yêu cầu thay quyền hành động, tiếp tục lượt theo luật. | NPC14 |
 
-(1) nguồn sự thật · (2) mơ hồ / thiếu thông tin · (3) ngoài phạm vi / thẩm quyền · (4) đặc thù lĩnh vực (sai thì người dùng mất gì đắt nhất)
+Các ID ở trên trỏ tới [bộ câu thử hiện có](eval/benchmark.csv).
 
 ## §6. Bốn đường đi của trải nghiệm
-- Mọi thứ suôn sẻ: · Không chắc (lớp 2): · Không có căn cứ (lớp 1): · Người dùng sửa:
-- Bị đòi ngoài phạm vi (lớp 3): · Trường hợp đặc thù lĩnh vực (lớp 4):
+
+1. **Đủ căn cứ.** Người chơi mở ván, NPC lấp ghế và đọc lời thoại công khai. Khi có mâu thuẫn rõ, NPC nêu điều đã thấy, bỏ phiếu cho mục tiêu hợp lệ và server khóa lượt.
+2. **Thiếu căn cứ hoặc dữ liệu.** Khi lời khai chưa đủ, NPC nói chưa chắc. Khi view lỗi hoặc thiếu, NPC trả về action rỗng. Khi gặp lỗi kỹ thuật ở lượt NPC, host dùng phương án dự phòng của ván để tiếp tục.
+3. **Người chơi thay đổi lựa chọn.** Trước khi khóa phiếu, người chơi có thể đổi mục tiêu. Bộ máy giữ phiếu hợp lệ mới nhất. Khi hết lượt hoặc mục tiêu đã bị loại, bộ máy từ chối thao tác và gửi trạng thái mới.
+4. **Yêu cầu vượt quyền hoặc có luật đặc biệt.** NPC giữ riêng vai, phe và kết quả soi. Nếu có lượt cắn thứ hai hoặc hiệu ứng chết dây chuyền, bộ máy cập nhật danh sách mục tiêu, xử lý hết chuỗi rồi mới xét thắng.
 
 ## §7. Đánh giá & chuẩn "đạt" *(guide 2.4, 4.1)*
 
@@ -117,7 +140,7 @@ Giữ kín thông tin được kiểm trên `speech` và nội dung chat/whisper
 
 | Thời điểm | Đổi gì | Vì sao (trỏ về câu thử / lỗi / bằng chứng nào) |
 |---|---|---|
-|  |  |  |
+| Chuẩn bị CP3 | Hoàn thiện đặc tả §0–§6 từ khảo sát, kiến trúc và ca thử hiện có. | Bổ sung mô tả pain, giả định impact và cách xử lý để nhóm đối chiếu trước khi nộp. |
 
 **Sau CP4 (đến 23:59 Thứ Bảy 28/11)** (sửa theo góp ý — không sửa chuẩn "đạt", câu thử, số bằng chứng, kết quả các lượt đã chạy)
 
