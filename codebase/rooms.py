@@ -2,7 +2,7 @@
 
 import asyncio
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .game_engine import GameEngine, deal_roles
 
@@ -41,6 +41,14 @@ class Member:
     player_id: str | None = None
 
 
+@dataclass
+class Dawn:
+    previous_views: dict
+    deaths: set
+    survivors: list
+    arrivals: list = field(default_factory=list)
+
+
 class Room:
     def __init__(self, code, seats, rng, timers):
         self.code = code
@@ -59,6 +67,8 @@ class Room:
         self.deadline = None
         self.night_deadline = None
         self.night_phase_id = None
+        self.prepare_deadline = None
+        self.dawn = None
         self.failed = False
         self.accepting = False
         self.acted = set()
@@ -146,6 +156,8 @@ class Room:
         self.rng.shuffle(bot_names)
         self.names.update(zip(bot_ids, bot_names))
         self.engine = GameEngine(players, rng=self.rng, fixed_night=True)
+        self.night_phase_id = self.night_deadline = self.prepare_deadline = None
+        self.dawn = None
         self.failed = False
 
     def joined_message(self, member):
@@ -163,24 +175,51 @@ class Room:
             "can_start": member is self.host,
         }
 
+    def capture_dawn_views(self):
+        return {member.player_id: self.engine.view(member.player_id)
+                for member in self.members.values()}
+
+    def begin_dawn(self, previous_views):
+        after = self.engine.view(next(iter(self.names)))
+        survivors = sorted(player["player_id"] for player in after["players"] if player["alive"])
+        self.dawn = Dawn(previous_views, set(after["last_deaths"]), survivors)
+        self.phase_id += 1
+
     def state_message(self, member):
         view = self.engine.view(member.player_id)
         deadline = self.deadline
         phase_id = self.phase_id
         acted = member.player_id in self.acted
-        if view["phase"].startswith("night_") and (not self.accepting or not view["allowed_actions"]):
-            view["phase"] = "night_wait"
-            view["allowed_actions"] = []
+        reveal = self.engine.reveal()
+        if self.dawn is not None:
+            view = dict(self.dawn.previous_views[member.player_id])
+            view.update(
+                phase="day_arrival", allowed_actions=[], last_deaths=[], eliminated=None,
+                winner=None, arrivals=self.dawn.arrivals[:],
+                you_died=member.player_id in self.dawn.deaths,
+            )
+            deadline = reveal = None
+            acted = False
+        elif view["phase"].startswith("night_") or view["phase"] == "pair":
+            preparing = self.prepare_deadline is not None and bool(view["allowed_actions"])
+            if preparing or not self.accepting or not view["allowed_actions"]:
+                if preparing:
+                    view["next_phase"] = view["phase"]
+                    view["phase"] = "night_prepare"
+                    deadline = self.prepare_deadline
+                else:
+                    view["phase"] = "night_wait"
+                    deadline = self.night_deadline
+                    phase_id = self.night_phase_id
+                view["allowed_actions"] = []
+                acted = False
+        if view["phase"] in {"night_wait", "night_prepare", "day_arrival"}:
             view.pop("strikes_remaining", None)
             view.pop("wolf_votes", None)
-            deadline = self.night_deadline
-            phase_id = self.night_phase_id
-            acted = False
         return {
             "type": "state", "code": self.code, "me": member.player_id,
             "names": self.names.copy(), "deadline": deadline, "phase_id": phase_id,
-            "is_host": member is self.host,
-            "acted": acted, "view": view, "reveal": self.engine.reveal(),
+            "is_host": member is self.host, "acted": acted, "view": view, "reveal": reveal,
         }
 
 

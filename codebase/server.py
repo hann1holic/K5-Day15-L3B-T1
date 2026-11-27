@@ -27,6 +27,8 @@ from agent import answer
 LOGGER = logging.getLogger(__name__)
 MAX_CHAT_LENGTH = 200
 BOT_TIMEOUT = 5
+PREPARE_SECONDS = 5
+DAWN_STEP_SECONDS = 0.7
 
 
 async def send(connection, message):
@@ -227,28 +229,39 @@ class GameServer:
                     room.ready.clear()
                     seconds = self._duration(room, engine.phase)
                     now = asyncio.get_running_loop().time()
-                    night = engine.phase.startswith("night_")
-                    if night and night_end is None:
-                        room.night_phase_id = phase_id
-                        room.night_deadline = int((time.time() + seconds * FIXED_NIGHT_SLOTS) * 1000)
+                    phase = engine.phase
+                    night = phase.startswith("night_")
+                    private_turn = night or phase == "pair"
+                    start = night_end if night and night_end is not None else now
+                    opens = start + PREPARE_SECONDS if private_turn else start
+                    end = opens + seconds
+                    wall_time = time.time()
                     if night:
-                        night_end = (night_end if night_end is not None else now) + seconds
-                        end = night_end
+                        if night_end is None:
+                            room.night_phase_id = phase_id
+                            total = (seconds + PREPARE_SECONDS) * FIXED_NIGHT_SLOTS
+                            room.night_deadline = int((wall_time + total) * 1000)
+                        night_end = end
                     else:
-                        night_end = room.night_phase_id = room.night_deadline = None
-                        end = now + seconds
-                    room.deadline = int((time.time() + max(0, end - now)) * 1000)
-                    room.accepting = True
-                    self._check_ready(room)
-                    bot_tasks = [
-                        asyncio.create_task(self._bot_turn(room, phase_id, pid))
-                        for pid in sorted(room.bots) if engine.allowed_actions(pid)
-                    ]
+                        night_end = None
+                        room.night_phase_id = phase_id if private_turn else None
+                        room.night_deadline = int((wall_time + end - now) * 1000) if private_turn else None
+                    room.deadline = int((wall_time + max(0, end - now)) * 1000)
+                    if private_turn:
+                        room.prepare_deadline = int((wall_time + max(0, opens - now)) * 1000)
+                        room.accepting = False
+                    else:
+                        bot_tasks = self._open_turn(room, phase_id)
                     await self._broadcast(room)
-                remaining = max(0, end - asyncio.get_running_loop().time())
-                if night:
-                    await asyncio.sleep(remaining)
+                if private_turn:
+                    await asyncio.sleep(max(0, opens - asyncio.get_running_loop().time()))
+                    async with room.lock:
+                        bot_tasks = self._open_turn(room, phase_id)
+                        recipients = {pid for pid in room.names if engine.allowed_actions(pid)}
+                        await self._broadcast(room, recipients)
+                    await asyncio.sleep(max(0, end - asyncio.get_running_loop().time()))
                 else:
+                    remaining = max(0, end - asyncio.get_running_loop().time())
                     with suppress(asyncio.TimeoutError):
                         await asyncio.wait_for(room.ready.wait(), timeout=remaining)
                 async with room.lock:
@@ -258,9 +271,14 @@ class GameServer:
                             action = fallback(engine.allowed_actions(pid))
                             if action is not None:
                                 engine.submit_action(pid, action)
+                    dawn_views = room.capture_dawn_views() if phase == "night_hunter" else None
                     engine.advance()
+                    if dawn_views is not None:
+                        room.begin_dawn(dawn_views)
                 await self._cancel_bots(bot_tasks)
                 bot_tasks.clear()
+                if dawn_views is not None:
+                    await self._play_dawn(room)
             async with room.lock:
                 room.phase_id += 1
                 room.deadline = None
@@ -276,6 +294,27 @@ class GameServer:
                 }) for member in room.members.values() if member.connection is not None))
         finally:
             await self._cancel_bots(bot_tasks)
+
+    def _open_turn(self, room, phase_id):
+        room.prepare_deadline = None
+        room.accepting = True
+        self._check_ready(room)
+        return [
+            asyncio.create_task(self._bot_turn(room, phase_id, pid))
+            for pid in sorted(room.bots) if room.engine.allowed_actions(pid)
+        ]
+
+    async def _play_dawn(self, room):
+        async with room.lock:
+            await self._broadcast(room)
+        for player_id in room.dawn.survivors:
+            await asyncio.sleep(DAWN_STEP_SECONDS)
+            async with room.lock:
+                room.dawn.arrivals.append(player_id)
+                await self._broadcast(room)
+        await asyncio.sleep(DAWN_STEP_SECONDS)
+        async with room.lock:
+            room.dawn = None
 
     async def _cancel_bots(self, tasks):
         for task in tasks:

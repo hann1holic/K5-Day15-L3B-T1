@@ -39,6 +39,19 @@ Gửi ID đã chết hoặc chọn ngoài danh sách hợp lệ sẽ trả `acce
 
 Hùng dùng `view` làm đầu vào NPC và giữ `answer(text) -> {"output": str}` cho bộ đánh giá. Dũng dùng cùng `view` để mở nút đúng pha và gọi `submit_action` khi người chơi chọn. Nguồn nội bộ như vai toàn bàn và đáp án fixture thuộc phần khởi tạo và kiểm thử.
 
+## Mốc chuẩn bị riêng và tập trung buổi sáng trên web
+
+Hai pha dưới đây nằm trong WebSocket `state`. Bộ máy terminal tiếp tục chạy trực tiếp theo các pha ở trên.
+
+| `view.phase` | Ai nhận và dùng dữ liệu nào |
+|---|---|
+| `night_prepare` | Chỉ người sắp có lượt. `deadline` là thời điểm bắt đầu hành động theo Unix mili giây, cách 5 giây khi pha mở. `view.next_phase` là lượt kế tiếp của chính người đó, gồm cả Cupid. `allowed_actions` rỗng cho tới khi server mở lượt. |
+| `night_wait` | Người chưa tới lượt dùng chung một `phase_id` và `deadline` đến sáng. Server chừa cùng 5 giây chuẩn bị cho cả lượt trống, nên họ không thấy lượt bị bỏ qua khi một vai đã chết. |
+| `day_arrival` | Mỗi người nhận `view.arrivals`, danh sách ID đã xuất hiện ở phòng khách theo thứ tự. `view.you_died` chỉ đúng với người bị loại trong đêm đó, dùng làm tín hiệu riêng. |
+| `day_discussion` hoặc `finished` | Server chuyển pha sau khi công bố lần lượt tất cả người sống. Nếu đêm đó đã có phe thắng, server gửi kết quả sau pha tập trung. |
+
+Ở `day_arrival`, `deadline` là `null`, `allowed_actions` và `last_deaths` rỗng, `winner` và `reveal` là `null`. Trường `players` duy trì trạng thái công khai trước khi xử lý cái chết trong đêm. Giao diện dùng `arrivals` để hiện người vừa xuất hiện, rồi dùng `you_died` và `phase_id` để báo riêng một lần. Người vào lại giữa pha nhận danh sách đã tập trung và tín hiệu riêng của chính mình.
+
 Chạy từ thư mục gốc để kiểm tra bộ máy với ván mock:
 
 ~~~bash
