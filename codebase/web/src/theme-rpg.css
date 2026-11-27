@@ -103,3 +103,9 @@ input, select {
   .seat { width: 68px; }
   .seats[data-many=true] .seat { width: 46px; }
 }
+
+.voice-panel { border-image: url("./assets/rpgui/border-image-golden.png") 6 repeat; }
+.voice-private summary { font-size: 1.4rem; }
+.voice-dot { border-radius: 0; border: 1px solid #160e08; }
+.voice-players [data-speaking=true] { color: #d3f7a5; }
+.voice-choice { border: 1px dashed var(--line); background: #0003; }

@@ -78,6 +78,29 @@
         <div><p id="round-label" class="eyebrow"></p><h1 id="phase-label"></h1><p id="round-news"></p></div>
         <div class="heading-controls"><span id="timer" class="timer" aria-label="Thời gian còn lại"></span><button class="quiet leave" type="button">Rời phòng</button></div>
       </div>
+      <section id="voice-panel" class="panel voice-panel" aria-labelledby="voice-title" hidden>
+        <div class="voice-heading">
+          <h2 id="voice-title">Voice · Tiếng nói dân làng</h2>
+          <button id="voice-mic" type="button" aria-pressed="false">Bật mic</button>
+        </div>
+        <p id="voice-status" class="small muted" role="status"></p>
+        <button id="voice-listen" type="button" hidden>Bật tiếng voice</button>
+        <ul id="voice-players" class="voice-players" aria-label="Người trong voice"></ul>
+        <details class="voice-private" open>
+          <summary>Nói riêng</summary>
+          <p id="voice-group-hint" class="small muted">Chỉ mời nói riêng khi còn sống trong pha thảo luận.</p>
+          <form id="voice-invite-form" hidden>
+            <p class="small muted">Chọn 1–3 người còn sống để mời vào một nhóm.</p>
+            <div id="voice-targets" class="voice-targets" role="group" aria-label="Chọn người nói riêng"></div>
+            <button id="voice-invite" type="submit" disabled>Mời</button>
+          </form>
+          <div id="voice-invitations" aria-live="polite"></div>
+          <div id="voice-group" hidden>
+            <p id="voice-group-members" class="small muted"></p>
+            <button id="voice-leave" class="quiet" type="button">Rời nhóm</button>
+          </div>
+        </details>
+      </section>
       <section id="turn-panel" class="panel turn-panel" aria-labelledby="turn-title">
         <h2 id="turn-title">Lượt của bạn</h2>
         <p id="phase-guide" class="muted"></p>
