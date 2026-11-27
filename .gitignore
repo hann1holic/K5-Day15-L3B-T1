@@ -5,6 +5,7 @@
 *.pem
 *service-account*.json
 credentials*.json
+certs/
 # File sinh ra khi chạy
 __pycache__/
 *.pyc
