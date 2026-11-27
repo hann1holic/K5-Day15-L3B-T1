@@ -5,7 +5,7 @@ Luồng này áp dụng cho bản chơi web. Phòng có **4–20 ghế**. Bản 
 ## 1. Vào phòng và chia vai
 
 1. Người chơi nhập tên hiển thị rồi tạo phòng hoặc vào bằng mã phòng. Chủ phòng chọn số ghế và thời gian thảo luận, bỏ phiếu và hành động ban đêm.
-2. Khi chủ phòng bắt đầu, NPC lấp các ghế trống. Server chia vai và gửi riêng cho từng người.
+2. Khi chủ phòng bắt đầu, NPC lấp các ghế trống. Server chia vai và gửi riêng cho từng người. Lúc chia vai, cứ ít nhất ba người phe Dân thì có tối đa một Sói. Sói con tính vào số Sói, các vai chức năng như Tiên tri và Bảo vệ tính vào phe Dân. Phòng 4–7 ghế có 1 Sói, 8–11 ghế có 2, 12–15 ghế có 3, 16–19 ghế có 4, còn phòng 20 ghế có 5.
 3. Nếu có **Cupid (Thần Tình Yêu)**, gọi Cupid trước lượt săn đầu tiên. Cupid ghép hai người. Họ biết vai gốc của nhau, giữ kỹ năng cá nhân và chuyển sang **phe Tình Nhân**. Nếu ván không có Cupid, gọi Sói đầu tiên.
 
 Quyền vote cắn thuộc về phe Sói hiện tại. Một người có vai gốc là Sói nhưng đã chuyển sang Tình Nhân rời lượt săn của đàn. Tiên tri vẫn soi ra vai gốc của người đó là Sói.

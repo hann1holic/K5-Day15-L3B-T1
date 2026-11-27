@@ -21,21 +21,21 @@ ROLE_ACTIONS = {
 
 
 def deal_roles(seats, rng):
-    """Build and shuffle a balanced role list for a lobby of 4 to 20."""
+    """Deal roles with at most one wolf per three starting villagers."""
     if type(seats) is not int or not 4 <= seats <= 20:
         raise ValueError("A room requires 4 to 20 seats.")
     roles = ["tien_tri"]
     if seats >= 5:
         roles.append("bao_ve")
-    wolf_count = 1 if seats <= 5 else 2
+    ordinary_wolves = seats // 4
     if seats >= 8:
         roles.extend(("soi_con", "phu_thuy"))
-        wolf_count = max(3, (seats + 2) // 4) - 1
+        ordinary_wolves -= 1
     if seats >= 11:
         roles.extend(("tho_san", "than_tinh_yeu"))
     if seats >= 12:
         roles.append("tien_tri_tap_su")
-    roles.extend(["soi_thuong"] * wolf_count)
+    roles.extend(["soi_thuong"] * ordinary_wolves)
     roles.extend(["dan"] * (seats - len(roles)))
     rng.shuffle(roles)
     return roles
