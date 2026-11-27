@@ -8,6 +8,7 @@ from .game_engine import GameEngine, deal_roles
 
 
 ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+PHASE_TIMERS = ("discussion_seconds", "vote_seconds", "night_seconds")
 BOT_NAMES = (
     "An", "Bình", "Chi", "Duy", "Giang", "Hải", "Hạnh", "Hòa", "Hương", "Khôi",
     "Lan", "Linh", "Minh", "Nam", "Ngọc", "Phúc", "Quân", "Sơn", "Thảo", "Trang",
@@ -41,8 +42,9 @@ class Member:
 
 
 class Room:
-    def __init__(self, code, seats, rng):
+    def __init__(self, code, seats, rng, timers):
         self.code = code
+        self.timers = timers.copy()
         self.seats = seats
         self.rng = rng
         self.members = {}
@@ -97,6 +99,16 @@ class Room:
             raise RoomError("bad_message", "Số ghế nhỏ hơn số người đã vào.")
         self.seats = seats
 
+    def set_timers(self, member, timers):
+        self.require_host(member)
+        if self.engine is not None:
+            raise RoomError("game_in_progress", "Chỉ đổi thời gian trong phòng chờ.")
+        if not isinstance(timers, dict) or set(timers) != set(PHASE_TIMERS):
+            raise RoomError("bad_message", "Cần nhập thời gian cho cả ba pha.")
+        if any(type(value) is not int or not 1 <= value <= 600 for value in timers.values()):
+            raise RoomError("bad_message", "Mỗi thời gian phải là số nguyên từ 1 đến 600 giây.")
+        self.timers = timers.copy()
+
     def start(self, member, *, restart=False):
         self.require_host(member)
         if restart:
@@ -133,6 +145,7 @@ class Room:
                          "connected": m.connection is not None}
                         for m in self.members.values()],
             "bots_on_start": self.seats - len(self.members),
+            "timers": self.timers.copy(),
             "can_start": member is self.host,
         }
 
@@ -148,9 +161,10 @@ class Room:
 
 
 class Rooms:
-    def __init__(self, rng):
+    def __init__(self, rng, default_timers):
         self.rng = rng
         self._rooms = {}
+        self.default_timers = default_timers.copy()
 
     def create(self, name, seats, connection):
         seats = seat_count(seats)
@@ -158,7 +172,7 @@ class Rooms:
             code = "".join(secrets.choice(ROOM_ALPHABET) for _ in range(4))
             if code not in self._rooms:
                 break
-        room = Room(code, seats, self.rng)
+        room = Room(code, seats, self.rng, self.default_timers)
         member = room.join(name, connection)
         self._rooms[code] = room
         return room, member

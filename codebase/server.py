@@ -54,10 +54,11 @@ def fallback(options):
 class GameServer:
     def __init__(self, *, rng=None, discussion_seconds=90, vote_seconds=30,
                  night_seconds=20, choose_bot=bot_action):
-        self.rooms = Rooms(rng if rng is not None else Random())
-        self.discussion_seconds = discussion_seconds
-        self.vote_seconds = vote_seconds
-        self.night_seconds = night_seconds
+        self.rooms = Rooms(rng if rng is not None else Random(), {
+            "discussion_seconds": discussion_seconds,
+            "vote_seconds": vote_seconds,
+            "night_seconds": night_seconds,
+        })
         self.choose_bot = choose_bot
         self._games = set()
         self._bot_workers = set()
@@ -135,6 +136,9 @@ class GameServer:
         if kind == "set_seats":
             room.set_seats(member, message.get("seats"))
             await self._broadcast(room)
+        elif kind == "set_timers":
+            room.set_timers(member, message.get("timers"))
+            await self._broadcast(room)
         elif kind in {"start", "restart"}:
             if kind == "restart" and room.deadline is not None:
                 raise RoomError("game_in_progress", "Đang chốt kết quả ván.")
@@ -188,12 +192,12 @@ class GameServer:
             deliveries.append(send(member.connection, message))
         await asyncio.gather(*deliveries)
 
-    def _duration(self, phase):
+    def _duration(self, room, phase):
         if phase == "day_discussion":
-            return self.discussion_seconds
+            return room.timers["discussion_seconds"]
         if phase == "day_vote":
-            return self.vote_seconds
-        return self.night_seconds
+            return room.timers["vote_seconds"]
+        return room.timers["night_seconds"]
 
     async def _play(self, room):
         engine = room.engine
@@ -205,7 +209,7 @@ class GameServer:
                     phase_id = room.phase_id
                     room.acted.clear()
                     room.ready.clear()
-                    seconds = self._duration(engine.phase)
+                    seconds = self._duration(room, engine.phase)
                     end = asyncio.get_running_loop().time() + seconds
                     room.deadline = int((time.time() + seconds) * 1000)
                     room.accepting = True
