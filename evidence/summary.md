@@ -3,6 +3,15 @@
 > Điền ở guide bước 1.2, xong trước **CP3 10:00 Thứ Bảy 28/11**. Chấm ở rubric R1.
 > Ba nguồn ngang nhau — tối thiểu **≥1 nguồn đạt ngưỡng**. Mạnh nhất: đào data ra insight → hỏi người dùng để kiểm lại (hoặc ngược lại).
 
+## Tiến độ CP2 (27/11, Khánh cập nhật trước khi nộp)
+
+> Ghi đúng số thật tại lúc nộp. Chưa có thì ghi 0, không để trống.
+
+- Nguồn chính: **phỏng vấn** người ngoài nhóm từng chơi Ma Sói / game suy luận xã hội. Phiếu hỏi: [`interviews/PHIEU-PHONG-VAN.md`](interviews/PHIEU-PHONG-VAN.md).
+- Trạng thái: **đang làm** — đã phỏng vấn **0/3** · đã hẹn **__** người · trích dẫn nguyên văn **0/5**.
+- Đào data / khảo sát: chưa dùng ở CP2.
+- Dự kiến xong ≥3 buổi và ≥5 trích dẫn: trước CP3 10:00 Thứ Bảy 28/11.
+
 ## 1. Nguồn đã dùng
 
 | Nguồn | Đạt ngưỡng? | File |
@@ -43,6 +52,9 @@ Giả thuyết ở `evidence/hypothesis.md`: **đúng / sai / phải đổi** �
 
 ## Lịch hẹn (dùng cho CP2 — chỉ ghi vai và giờ, không tên)
 
-| Vai | Giờ hẹn | Đã xong? |
-|---|---|---|
-| | | |
+| | Vai | Giờ hẹn | Hình thức | Đã xong? |
+|---|---|---|---|---|
+| P1 | | | trực tiếp / gọi | ☐ |
+| P2 | | | | ☐ |
+| P3 | | | | ☐ |
+| P4 *(dự phòng)* | | | | ☐ |
