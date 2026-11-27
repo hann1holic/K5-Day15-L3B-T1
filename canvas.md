@@ -9,7 +9,7 @@
 | 5 | **Lát cắt một câu** | Khi một người chơi mở ván Ma Sói ba phe tối đa 20 người mà thiếu người, NPC AI lấp chỗ trống và quyết định lời thoại cùng phiếu bầu dựa trên vai bí mật và thông tin được phép biết, để người chơi chơi trọn một ván. |
 | 6 | AI tự làm đến đâu | NPC tự chọn lời thoại, mục tiêu bỏ phiếu và lý do; bộ luật của game giữ vai bí mật, kiểm tra phiếu hợp lệ và xác định phe thắng để tránh phiếu sai luật hoặc lộ thông tin giữa các phe. |
 | 7 | Phân công có tên | **Lê Huy Anh** — Thiết kế luật ba phe, triển khai bộ máy ván chơi và điều phối tiến độ. **Dư Văn Hùng** — Tích hợp model, thiết kế lời thoại và quyết định bỏ phiếu của NPC. **Nguyễn Tấn Dũng** — Dựng giao diện phòng chơi, hiển thị diễn biến và tích hợp bỏ phiếu. **Vũ Duy Khánh** — Phỏng vấn người chơi, phụ trách bộ câu thử, chạy đánh giá và mô phỏng chi phí. |
-| — | *(CP2)* Đã đổi gì so với CP1 | |
+| — | *(CP2)* Đã đổi gì so với CP1 | Thu hẹp bản CP2 thành ván mock sáu người chạy terminal. Đã xác định thứ tự ngày–đêm, quyền từng vai và cách bộ máy kiểm tra đề xuất của NPC. Đang chờ tổng hợp phỏng vấn từ Khánh. |
 
 ## Track F · Ma Sói
 
