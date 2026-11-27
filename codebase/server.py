@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from websockets.asyncio.server import serve
 from websockets.exceptions import ConnectionClosed
 
+from .game_engine import FIXED_NIGHT_SLOTS
 from .rooms import RoomError, Rooms
 
 
@@ -100,8 +101,9 @@ class GameServer:
             if room is not None:
                 async with room.lock:
                     if member.connection is connection:
-                        member.connection = None
-                        if room.engine is None:
+                        previous_host = room.host
+                        room.disconnect(member)
+                        if room.engine is None or room.host is not previous_host:
                             await self._broadcast(room)
 
     async def _enter(self, connection, message):
@@ -117,9 +119,15 @@ class GameServer:
             if kind == "join_room":
                 member = room.join(message.get("name"), connection)
             if kind == "rejoin":
-                member = room.rejoin(message.get("token"), connection)
+                member, previous = room.rejoin(message.get("token"), connection)
+                if previous is not None and previous is not connection:
+                    await send(previous, {
+                        "type": "error", "code": "session_replaced",
+                        "message": "Ghế của bạn đã chuyển sang tab hoặc thiết bị khác.",
+                    })
             await send(connection, room.joined_message(member))
-            await self._broadcast(room)
+            recipients = {member.player_id} if room.engine is not None else None
+            await self._broadcast(room, recipients)
         return room, member
 
     async def _dispatch(self, room, member, message):
@@ -160,6 +168,8 @@ class GameServer:
             result = {"accepted": False, "reason": "invalid_action"}
         elif not room.accepting or engine is None or message.get("phase_id", room.phase_id) != room.phase_id:
             result = {"accepted": False, "reason": "action_not_allowed"}
+        elif engine.phase.startswith("night_") and not engine.allowed_actions(member.player_id):
+            result = {"accepted": False, "reason": "action_not_allowed"}
         elif action.get("type") in ("chat", "whisper") and (
                 not isinstance(action.get("text"), str) or len(action["text"]) > MAX_CHAT_LENGTH):
             result = {"accepted": False, "reason": "invalid_text"}
@@ -170,25 +180,30 @@ class GameServer:
             if engine.phase != "night_witch" or not engine.allowed_actions(member.player_id):
                 room.acted.add(member.player_id)
             self._check_ready(room)
-            await self._broadcast(room)
+            await self._broadcast_action(room, member.player_id)
 
     def _check_ready(self, room):
         engine = room.engine
-        if engine.phase != "day_discussion" and all(
+        if engine.phase not in {"day_discussion", "finished"} and not engine.phase.startswith("night_") and all(
             pid in room.acted or not engine.allowed_actions(pid) for pid in room.names
         ):
             room.ready.set()
 
-    async def _broadcast(self, room):
+    async def _broadcast_action(self, room, player_id):
+        phase = room.engine.phase
+        recipients = None
+        if phase == "night_wolf":
+            recipients = {pid for pid in room.names if room.engine.allowed_actions(pid)}
+        elif phase.startswith("night_") or phase == "pair":
+            recipients = {player_id}
+        await self._broadcast(room, recipients)
+
+    async def _broadcast(self, room, recipients=None):
         deliveries = []
         for member in room.members.values():
-            if member.connection is None:
+            if member.connection is None or (recipients is not None and member.player_id not in recipients):
                 continue
-            if room.engine is None:
-                message = room.lobby_message(member)
-            else:
-                message = room.state_message(member, deadline=room.deadline, phase_id=room.phase_id,
-                                             acted=room.acted)
+            message = room.lobby_message(member) if room.engine is None else room.state_message(member)
             deliveries.append(send(member.connection, message))
         await asyncio.gather(*deliveries)
 
@@ -202,6 +217,7 @@ class GameServer:
     async def _play(self, room):
         engine = room.engine
         bot_tasks = []
+        night_end = None
         try:
             while engine.phase != "finished":
                 async with room.lock:
@@ -210,8 +226,18 @@ class GameServer:
                     room.acted.clear()
                     room.ready.clear()
                     seconds = self._duration(room, engine.phase)
-                    end = asyncio.get_running_loop().time() + seconds
-                    room.deadline = int((time.time() + seconds) * 1000)
+                    now = asyncio.get_running_loop().time()
+                    night = engine.phase.startswith("night_")
+                    if night and night_end is None:
+                        room.night_phase_id = phase_id
+                        room.night_deadline = int((time.time() + seconds * FIXED_NIGHT_SLOTS) * 1000)
+                    if night:
+                        night_end = (night_end if night_end is not None else now) + seconds
+                        end = night_end
+                    else:
+                        night_end = room.night_phase_id = room.night_deadline = None
+                        end = now + seconds
+                    room.deadline = int((time.time() + max(0, end - now)) * 1000)
                     room.accepting = True
                     self._check_ready(room)
                     bot_tasks = [
@@ -219,8 +245,12 @@ class GameServer:
                         for pid in sorted(room.bots) if engine.allowed_actions(pid)
                     ]
                     await self._broadcast(room)
-                with suppress(asyncio.TimeoutError):
-                    await asyncio.wait_for(room.ready.wait(), timeout=max(0, end - asyncio.get_running_loop().time()))
+                remaining = max(0, end - asyncio.get_running_loop().time())
+                if night:
+                    await asyncio.sleep(remaining)
+                else:
+                    with suppress(asyncio.TimeoutError):
+                        await asyncio.wait_for(room.ready.wait(), timeout=remaining)
                 async with room.lock:
                     room.accepting = False
                     if engine.phase == "pair":
@@ -240,6 +270,7 @@ class GameServer:
             LOGGER.exception("Game loop failed for room %s", room.code)
             async with room.lock:
                 room.accepting = False
+                room.failed = True
                 await asyncio.gather(*(send(member.connection, {
                     "type": "error", "code": "game_error", "message": "Không thể tiếp tục ván."
                 }) for member in room.members.values() if member.connection is not None))
@@ -284,7 +315,7 @@ class GameServer:
                 if room.engine.submit_action(player_id, action)["accepted"]:
                     room.acted.add(player_id)
                     self._check_ready(room)
-                    await self._broadcast(room)
+                    await self._broadcast_action(room, player_id)
                     return
         async with room.lock:
             if not room.accepting or room.phase_id != phase_id:
@@ -295,7 +326,7 @@ class GameServer:
             room.acted.add(player_id)
             self._check_ready(room)
             if action is not None:
-                await self._broadcast(room)
+                await self._broadcast_action(room, player_id)
 
 
 async def run(args):
