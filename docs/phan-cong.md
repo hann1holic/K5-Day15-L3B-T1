@@ -19,6 +19,50 @@ Bản chạy CP2 là một ván Ma Sói mẫu 6 chỗ đi hết luồng bằng `
 
 **Trước khi nộp.** Ghép các PR vào `dev`, chạy `python run.py` và `python run.py check`. Kiểm tra có sơ đồ §4, ngưỡng số §7, ít nhất 10 ca, ít nhất 3 metric, Data Card và Canvas đã cập nhật. Huy Anh ghép bản CP2 vào `main` và gửi form với link repo, spec, benchmark, ngưỡng đạt và tiến độ bằng chứng.
 
+## Đầu vào và đầu ra của từng người ở CP2
+
+| Người | Đầu vào nhận từ đâu | Đầu ra bàn giao cho ai |
+|---|---|---|
+| Huy Anh · `feat/game-engine` | Luật đã chốt, cấu hình ván mẫu 6 chỗ, hành động gửi từ giao diện của Dũng và NPC của Hùng. | Đưa cho Hùng và Dũng một ví dụ trạng thái đã lọc theo từng người, danh sách hành động hợp lệ và cách gửi hành động. Bộ máy trả về hành động hợp lệ hay bị từ chối, trạng thái mới theo quyền xem và kết quả vòng. Gửi Khánh trạng thái mẫu và kết quả đúng của từng ca luật. |
+| Hùng · `feat/ai-players` | Nhận từ Huy Anh vai và phe của NPC, thông tin NPC được biết, lời thoại được phép đọc, giai đoạn hiện tại và danh sách hành động hợp lệ. | Trả cho bộ máy lời thoại hoặc đề xuất hành động có mục tiêu. Lượt mock CP2 dùng dữ liệu cố định để chạy lặp lại được. Gửi Khánh một ví dụ JSON đầu vào và kết quả tương ứng. Qua `answer(text)`, gói kết quả vào `{"output": "..."}` để `run.py eval` đọc. |
+| Dũng · `feat/game-client` | Nhận trạng thái đã lọc từ bộ máy và thao tác người chơi như nhập chat, chọn mục tiêu, bỏ phiếu. | Gửi hành động của người chơi về bộ máy theo cùng định dạng với NPC. Hiển thị pha ngày–đêm, nút có thể dùng, kết quả và phe thắng. Bàn giao lệnh `python run.py` chạy hết ván mock từ thư mục gốc. |
+| Khánh · `test/eval-and-cost` | Luật và kết quả đúng từ Huy Anh, mẫu đầu vào/đầu ra từ Hùng, bản chạy từ Dũng và ghi chép phỏng vấn đã ẩn danh. | Nộp ít nhất 10 ca trong `eval/benchmark.csv`, ít nhất 3 metric trong `eval/metric_spec.yaml`, `data/DATA_CARD.md` và tiến độ bằng chứng. Gửi riêng Huy Anh bảng ngưỡng bằng số để chép nguyên vào `spec.md` §7. |
+
+### Ví dụ giao diện dữ liệu cho một lượt vote
+
+Đây là mẫu thống nhất để làm song song. Huy Anh ghi bản chốt vào `docs/giao-dien-van.md`.
+
+Bộ máy gửi cho người đang hành động:
+
+```json
+{
+  "round": 1,
+  "phase": "day_vote",
+  "player_id": "P03",
+  "role": "dan",
+  "faction": "dan",
+  "public_chat": [
+    {"player_id": "P04", "text": "Tôi chưa nghi P02."},
+    {"player_id": "P04", "text": "Tôi nghi P02 từ đầu."}
+  ],
+  "allowed_actions": [{"type": "vote", "target_ids": ["P01", "P04"]}]
+}
+```
+
+NPC hoặc giao diện gửi đề xuất hành động về bộ máy. Danh tính người gửi lấy từ lượt NPC đang chạy hoặc phiên người chơi.
+
+```json
+{"type": "vote", "target_id": "P04"}
+```
+
+Bộ máy kiểm tra lượt và mục tiêu rồi trả kết quả cho người gửi. Trạng thái và lịch sử chuyển cho mỗi người tiếp tục áp dụng quyền xem của người đó.
+
+```json
+{"accepted": true, "phase": "day_vote"}
+```
+
+Trong ca đánh giá NPC tương ứng, Khánh ghi tiêu chí theo tập đáp án hợp lệ, ví dụ phiếu phải nhắm `P01` hoặc `P04`. Nếu ca kiểm lý do chọn `P04`, lý do có thể viện dẫn hai lời khai mâu thuẫn đã xuất hiện công khai. Với ca kiểm bộ máy, Khánh gửi thêm phiếu nhắm người đã bị loại và kiểm kết quả là từ chối.
+
 ## Lê Huy Anh · Luật và bộ máy ván
 
 **Nhánh** `feat/game-engine`
