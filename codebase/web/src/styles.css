@@ -121,3 +121,19 @@ ul { list-style: none; margin: 0; padding: 0; }
 @media (max-width: 420px) {
   .timer-fields { grid-template-columns: 1fr; }
 }
+
+.voice-panel { margin-block: 1rem; }
+.voice-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem; }
+.voice-heading h2 { margin: 0; }
+.voice-players, .voice-targets { display: flex; flex-wrap: wrap; gap: .5rem .9rem; margin-block: .75rem; }
+.voice-players li { display: flex; align-items: center; gap: .45rem; overflow-wrap: anywhere; }
+.voice-dot { flex-shrink: 0; width: .65rem; height: .65rem; border-radius: 50%; background: var(--line); }
+.voice-players [data-speaking=true] .voice-dot { background: #b8ed82; box-shadow: 0 0 9px #b8ed82; }
+.voice-private { border-top: 1px solid var(--line); padding-top: .65rem; }
+.voice-private summary { cursor: pointer; color: var(--accent); }
+.voice-choice { display: flex; align-items: center; gap: .4rem; margin: 0; padding: .3rem; overflow-wrap: anywhere; }
+.voice-choice input { width: 1.15rem; min-height: 1.15rem; flex-shrink: 0; accent-color: var(--accent); }
+.voice-invitation { padding-block: .65rem; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.voice-invitation button { margin: .4rem .4rem 0 0; }
+#voice-group p { margin-block: .65rem; }
+#voice-status { margin-block: .55rem; overflow-wrap: anywhere; }

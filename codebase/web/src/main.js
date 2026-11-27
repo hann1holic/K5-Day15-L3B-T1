@@ -2,6 +2,7 @@ import "@fontsource/vt323";
 import "./styles.css";
 import "./theme-rpg.css";
 import { renderStage } from "./stage.js";
+import { createVoice } from "./voice.js";
 
 const $ = (id) => document.getElementById(id);
 const screens = ["home", "lobby", "game", "result"];
@@ -66,6 +67,8 @@ let savingTimers = false;
 let session = loadSession(sessionStorage);
 let rejoining = false;
 let deathNoticeFor = null;
+let voiceState = { enabled: false };
+const voice = createVoice({ send, onChange: renderVoice });
 
 function loadSession(storage) {
   try {
@@ -177,6 +180,7 @@ function connect({ preserveNotice = false } = {}) {
   });
   ws.addEventListener("close", () => {
     if (ws !== socket) return;
+    voice.close();
     awaitingAction = false;
     savingTimers = false;
     connection("offline");
@@ -190,7 +194,7 @@ function connect({ preserveNotice = false } = {}) {
 function receive(message) {
   // Sau khi rời phòng, server có thể vẫn còn tin đang trên đường tới: bỏ qua để không mở lại phòng cũ.
   // `joined` luôn đến trước `lobby`/`state`, nên `room` đã có khi vào hoặc vào lại.
-  if (!room && ["lobby", "state", "action_result"].includes(message.type)) return;
+  if (!room && ["lobby", "state", "action_result", "rtc_signal"].includes(message.type)) return;
   switch (message.type) {
     case "joined":
       room = message.code;
@@ -198,7 +202,11 @@ function receive(message) {
       rejoining = false;
       notice();
       break;
+    case "rtc_signal":
+      voice.handleSignal(message);
+      break;
     case "lobby":
+      voice.close();
       // Về phòng chờ (ván lỗi hoặc có người mới vào sau khi ván kết thúc): bỏ ván cũ.
       if (match) {
         match = null;
@@ -215,6 +223,7 @@ function receive(message) {
         $("action-status").textContent = "";
       }
       match = message;
+      voice.update(message);
       // Chỉ xoá thông báo lỗi khi sang lượt mới, để tin lỗi không biến mất sau 0,7 giây lúc trời sáng.
       if (phaseChanged && $("notice").dataset.tone === "error") notice();
       if (message.view.phase === "finished") {
@@ -246,6 +255,7 @@ function receive(message) {
         break;
       }
       if (message.code === "game_error") {
+        voice.close();
         // Server giữ phòng và gửi ngay danh sách phòng chờ sau tin này: ở lại phòng để chơi ván mới.
         match = null;
         awaitingAction = false;
@@ -393,6 +403,90 @@ function roundNews(view) {
 // Bot và người chơi có thể nhắc mã ghế (P03) trong tin: đổi thành tên.
 function withNames(text) {
   return text.replace(/\bP\d{2}\b/g, nameOf);
+}
+
+function renderVoice(snapshot = voiceState) {
+  voiceState = snapshot;
+  const panel = $("voice-panel");
+  panel.hidden = !snapshot.enabled;
+  if (!snapshot.enabled || !match) return;
+  // Keep the same controls available after the match, when everyone can speak.
+  const parent = match.view.phase === "finished" ? $("result") : $("game");
+  if (panel.parentElement !== parent) parent.appendChild(panel);
+  $("voice-mic").textContent = snapshot.micPending ? "Đang xin quyền mic…" : snapshot.micError ? "Thử lại mic" : snapshot.micOn ? "Tắt mic" : "Bật mic";
+  $("voice-mic").disabled = snapshot.micPending;
+  $("voice-mic").setAttribute("aria-pressed", String(snapshot.micOn));
+  $("voice-status").textContent = [
+    snapshot.canSpeak ? (snapshot.micOn && snapshot.hasMic ? "Đang nói được" : "Mic đang tắt · vẫn nghe được") : "Bị tắt theo luật · vẫn nghe được",
+    snapshot.micError, snapshot.error,
+  ].filter(Boolean).join(" · ");
+  $("voice-listen").hidden = !snapshot.playbackBlocked;
+  const ids = snapshot.peers.join(",");
+  const list = $("voice-players");
+  if (list.dataset.ids !== ids) {
+    list.dataset.ids = ids;
+    list.replaceChildren(...snapshot.peers.map((id) => {
+      const row = element("li");
+      row.dataset.player = id;
+      const dot = element("span", "", "voice-dot");
+      dot.setAttribute("aria-hidden", "true");
+      row.append(dot, element("span", nameOf(id) + (id === match.me ? " (Bạn)" : "")));
+      return row;
+    }));
+  }
+  for (const row of list.children) {
+    const talking = snapshot.speaking.includes(row.dataset.player);
+    row.dataset.speaking = String(talking);
+    row.setAttribute("aria-label", nameOf(row.dataset.player) + (talking ? ": đang nói" : ""));
+  }
+  const available = snapshot.groupAllowed && !snapshot.group && !snapshot.hosting;
+  $("voice-invite-form").hidden = !available;
+  $("voice-group-hint").hidden = snapshot.groupAllowed;
+  const targets = match.view.players.filter((p) => p.alive && p.player_id !== match.me && snapshot.peers.includes(p.player_id)).map((p) => p.player_id);
+  const choices = $("voice-targets");
+  const signature = JSON.stringify(targets.map((id) => [id, nameOf(id)]));
+  if (choices.dataset.ids !== signature) {
+    const selected = [...choices.querySelectorAll("input:checked")].map((input) => input.value);
+    choices.dataset.ids = signature;
+    choices.replaceChildren(...targets.map((id) => {
+      const label = element("label", undefined, "voice-choice");
+      const input = element("input");
+      input.type = "checkbox";
+      input.name = "voice-target";
+      input.value = id;
+      input.checked = selected.includes(id);
+      label.append(input, document.createTextNode(nameOf(id)));
+      return label;
+    }));
+  }
+  updateVoiceSelection();
+  const groupBox = $("voice-group");
+  groupBox.hidden = !snapshot.group && !snapshot.hosting;
+  $("voice-group-members").textContent = snapshot.group
+    ? "Trong nhóm: " + snapshot.group.members.map(nameOf).join(", ") + ". Phòng chung giảm âm lượng."
+    : "Đang chờ người được mời đồng ý…";
+  const inviteSignature = JSON.stringify(snapshot.invitations);
+  const invites = $("voice-invitations");
+  if (invites.dataset.signature !== inviteSignature) {
+    invites.dataset.signature = inviteSignature;
+    invites.replaceChildren(...snapshot.invitations.map((invitation) => {
+      const row = element("div", undefined, "voice-invitation");
+      row.append(element("p", nameOf(invitation.owner) + " mời nói riêng: " + invitation.members.map(nameOf).join(", ")));
+      const accept = element("button", "Đồng ý");
+      const decline = element("button", "Từ chối", "quiet");
+      accept.type = decline.type = "button";
+      accept.addEventListener("click", () => voice.acceptGroup(invitation.id));
+      decline.addEventListener("click", () => voice.declineGroup(invitation.id));
+      row.append(accept, decline);
+      return row;
+    }));
+  }
+}
+
+function updateVoiceSelection() {
+  const selected = [...$("voice-targets").querySelectorAll("input:checked")];
+  for (const input of $("voice-targets").querySelectorAll("input")) input.disabled = !input.checked && selected.length >= 3;
+  $("voice-invite").disabled = selected.length < 1 || selected.length > 3;
 }
 
 function renderGame() {
@@ -603,6 +697,7 @@ function renderResult() {
 }
 
 function resetRoom({ keepRecent = false } = {}) {
+  voice.close();
   storeSession(null, { keepRecent });
   // Mỗi phòng đếm phase_id riêng, nên quên mốc báo chết của phòng cũ.
   match = room = lobby = deathNoticeFor = null;
@@ -681,6 +776,16 @@ $("chat-form").addEventListener("submit", (event) => {
     : { type: "chat", text };
   submitAction(action);
 });
+
+$("voice-mic").addEventListener("click", () => voice.toggleMic());
+$("voice-listen").addEventListener("click", () => voice.enableAudio());
+$("voice-leave").addEventListener("click", () => voice.leaveGroup());
+$("voice-targets").addEventListener("change", updateVoiceSelection);
+$("voice-invite-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  voice.inviteGroup([...$("voice-targets").querySelectorAll("input:checked")].map((input) => input.value));
+});
+window.addEventListener("pagehide", () => voice.close());
 
 updateResume();
 connect();
