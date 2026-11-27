@@ -57,6 +57,9 @@ class Room:
         self.runner = None
         self.phase_id = 0
         self.deadline = None
+        self.night_deadline = None
+        self.night_phase_id = None
+        self.failed = False
         self.accepting = False
         self.acted = set()
 
@@ -76,15 +79,25 @@ class Room:
     def rejoin(self, token, connection):
         if not isinstance(token, str) or token not in self.members:
             raise RoomError("bad_token", "Mã vào lại không hợp lệ.")
+        if self.failed:
+            raise RoomError("game_error", "Ván này đã dừng vì lỗi máy chủ.")
         member = self.members[token]
+        previous = member.connection
         member.connection = connection
-        return member
+        self._elect_host()
+        return member, previous
+
+    def disconnect(self, member):
+        member.connection = None
+        self._elect_host()
 
     def leave(self, member):
         self.members.pop(member.token, None)
-        member.connection = None
-        if member is self.host:
-            self.host = next(iter(self.members.values()), None)
+        self.disconnect(member)
+
+    def _elect_host(self):
+        if self.host is None or self.host.connection is None:
+            self.host = next((m for m in self.members.values() if m.connection is not None), None)
 
     def require_host(self, member):
         if member is not self.host:
@@ -132,7 +145,8 @@ class Room:
         bot_names = [name for name in BOT_NAMES if name.casefold() not in taken]
         self.rng.shuffle(bot_names)
         self.names.update(zip(bot_ids, bot_names))
-        self.engine = GameEngine(players, rng=self.rng)
+        self.engine = GameEngine(players, rng=self.rng, fixed_night=True)
+        self.failed = False
 
     def joined_message(self, member):
         return {"type": "joined", "code": self.code, "token": member.token,
@@ -149,14 +163,24 @@ class Room:
             "can_start": member is self.host,
         }
 
-    def state_message(self, member, *, deadline, phase_id, acted):
+    def state_message(self, member):
         view = self.engine.view(member.player_id)
+        deadline = self.deadline
+        phase_id = self.phase_id
+        acted = member.player_id in self.acted
+        if view["phase"].startswith("night_") and (not self.accepting or not view["allowed_actions"]):
+            view["phase"] = "night_wait"
+            view["allowed_actions"] = []
+            view.pop("strikes_remaining", None)
+            view.pop("wolf_votes", None)
+            deadline = self.night_deadline
+            phase_id = self.night_phase_id
+            acted = False
         return {
             "type": "state", "code": self.code, "me": member.player_id,
             "names": self.names.copy(), "deadline": deadline, "phase_id": phase_id,
             "is_host": member is self.host,
-            "acted": member.player_id in acted, "view": view,
-            "reveal": self.engine.reveal(),
+            "acted": acted, "view": view, "reveal": self.engine.reveal(),
         }
 
 

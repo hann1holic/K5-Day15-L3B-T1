@@ -79,7 +79,7 @@ python -m codebase.server
 
 Giao diện kết nối tới `ws://127.0.0.1:8000/ws`. Khi thử trên nhiều máy cùng mạng, chạy `python -m codebase.server --host 0.0.0.0` trên máy chủ và dùng IP của máy đó trong cấu hình giao diện. Server giữ phòng và ván trong bộ nhớ của tiến trình.
 
-Chủ phòng chọn 4–20 ghế và có thể đổi thời gian thảo luận, bỏ phiếu và từng lượt đêm trong phòng chờ. Chỗ trống được NPC ngồi thay. Người mất kết nối có thể vào lại bằng mã phòng và token đã nhận. Server mặc định dùng NPC mock khi `MODEL_PROVIDER=fake`. Có thể thử nhanh với `--discussion-seconds 10 --vote-seconds 5 --night-seconds 5`.
+Chủ phòng chọn 4–20 ghế và có thể đổi thời gian thảo luận, bỏ phiếu và từng lượt đêm trong phòng chờ. Chỗ trống được NPC ngồi thay. Người mất kết nối có thể vào lại đúng ghế bằng mã phòng và token. Chủ phòng mất kết nối thì quyền chủ phòng chuyển cho người còn kết nối. Mỗi đêm có sáu lượt với thời lượng cố định, kể cả khi một vai không còn trong ván. Người đang chờ thấy một đồng hồ đếm đến sáng. Server mặc định dùng NPC mock khi `MODEL_PROVIDER=fake`. Có thể thử nhanh với `--discussion-seconds 10 --vote-seconds 5 --night-seconds 5`.
 
 Mỗi tin `state` có `is_host` để giao diện cập nhật nút Chơi lại nếu chủ phòng rời ván, cùng `phase_id` để nhận diện lượt hiện tại. Giao diện có thể gửi lại trường này trong tin `action` để từ chối thao tác đến trễ, kể cả giữa hai lượt Sói cùng tên pha. Bản terminal vẫn chạy bằng `python run.py`.
 
