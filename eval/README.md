@@ -5,7 +5,7 @@
 
 ## 1. Dataset → xử lý
 
-**(nháp chờ nhóm duyệt trước 19:30)**. `data/cp2_sample_game.json` là ván tự dựng 6 người, 2 vòng; tạo GameEngine, chạy hành động rồi lấy view theo quyền của từng NPC. Benchmark tự viết từ fixture và biến thể, không chứa setup/đáp án trong input; xem `data/DATA_CARD.md`. Chưa có dữ liệu phỏng vấn hoặc người dùng thật.
+Bộ CP2 đã chốt ngày 27/11/2026. `data/cp2_sample_game.json` là ván tự dựng 6 người, 2 vòng; tạo GameEngine, chạy hành động rồi lấy view theo quyền của từng NPC. Benchmark tự viết từ fixture và biến thể, không chứa setup/đáp án trong input; xem `data/DATA_CARD.md`. Chưa có dữ liệu phỏng vấn hoặc người dùng thật.
 
 ## 2. Bộ câu thử dựng ra sao
 

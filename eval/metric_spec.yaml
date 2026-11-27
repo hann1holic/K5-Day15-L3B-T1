@@ -1,4 +1,4 @@
-# CP2: nháp chờ nhóm duyệt trước 19:30 ngày 27/11/2026; chốt trước hạn, không sửa sau CP2.
+# Đã chốt tại CP2 (27/11/2026, trước 19:30); không sửa sau CP2.
 # Chấm tay từ input và output JSON; chưa có lượt đo hay người thứ hai chấm thử.
 metrics:
   - name: "hanh_dong_dung_luat"
