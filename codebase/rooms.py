@@ -51,7 +51,8 @@ class Dawn:
 
 
 @dataclass
-class VoteExecution:
+class VoteScene:
+    kind: str
     player_id: str
     round: int
     last_night_deaths: list[str]
@@ -79,7 +80,7 @@ class Room:
         self.night_phase_id = None
         self.prepare_deadline = None
         self.dawn = None
-        self.vote_execution = None
+        self.vote_scene = None
         self.accepting = False
         self.acted = set()
         self.bot_tasks = []
@@ -138,7 +139,7 @@ class Room:
         self.accepting = False
         self.deadline = self.night_deadline = self.night_phase_id = self.prepare_deadline = None
         self.dawn = None
-        self.vote_execution = None
+        self.vote_scene = None
         self.acted.clear()
         self.names = {}
         self.bots = set()
@@ -199,7 +200,7 @@ class Room:
         self.village = Village(self.rng) if self.village_enabled else None
         self.night_phase_id = self.night_deadline = self.prepare_deadline = None
         self.dawn = None
-        self.vote_execution = None
+        self.vote_scene = None
 
     def joined_message(self, member):
         return {"type": "joined", "code": self.code, "token": member.token,
@@ -227,8 +228,8 @@ class Room:
         self.dawn = Dawn(previous_views, set(after["last_deaths"]), survivors)
         self.phase_id += 1
 
-    def begin_vote_execution(self, before_vote, player_id, deadline):
-        self.vote_execution = VoteExecution(player_id, before_vote["round"], before_vote["last_deaths"])
+    def begin_vote_scene(self, before_vote, kind, player_id, deadline):
+        self.vote_scene = VoteScene(kind, player_id, before_vote["round"], before_vote["last_deaths"])
         self.phase_id += 1
         self.deadline = deadline
         self.acted.clear()
@@ -251,12 +252,12 @@ class Room:
                 view["effect"] = {"type": "night_slash", "id": phase_id, "player_id": member.player_id}
             deadline = reveal = None
             acted = False
-        elif self.vote_execution is not None:
-            execution = self.vote_execution
+        elif self.vote_scene is not None:
+            scene = self.vote_scene
             view.update(
-                phase="day_vote", round=execution.round, allowed_actions=[],
-                last_deaths=execution.last_night_deaths[:], winner=None,
-                effect={"type": "vote_execution", "id": phase_id, "player_id": execution.player_id},
+                phase="day_vote", round=scene.round, allowed_actions=[],
+                last_deaths=scene.last_night_deaths[:], winner=None,
+                effect={"type": scene.kind, "id": phase_id, "player_id": scene.player_id},
             )
             reveal = None
             acted = False
@@ -286,7 +287,7 @@ class Room:
         if self.village is not None and self.dawn is None:
             pack = view.get("wolf_pack", ()) if view["phase"] == "night_wolf" else ()
             view["village"] = self.village.view(member.player_id, view["phase"], pack)
-        if self.vote_execution is not None or view["phase"] in {
+        if self.vote_scene is not None or view["phase"] in {
             "night_wait", "night_prepare", "night_housing", "day_arrival",
         }:
             for key in ("strikes_remaining", "wolf_votes", "wolf_pack", "wolf_chat"):

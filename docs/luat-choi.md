@@ -48,7 +48,7 @@ Cuối đêm, server xử lý cú cắn sau Bảo vệ và bình cứu, áp dụ
 4. **Thảo luận.** Sau khi tập trung, hoặc khi hết Lucky Day, server đưa người sống tới quảng trường. Mọi người ở nguyên quảng trường để nói chuyện chung, nhắn riêng và bỏ phiếu.
 5. **Bỏ phiếu loại.** Hết giờ thảo luận, mỗi người còn sống bỏ một phiếu cho một người còn sống khác. Có thể đổi phiếu trước khi khóa. Phiếu khóa khi hết giờ, hoặc ngay khi mọi người còn sống đã bỏ phiếu. Người dẫn đầu duy nhất bị dân làng ném vào đống lửa ở quảng trường. Cả phòng thấy cảnh này. Hòa ở vị trí cao nhất hoặc cả bàn bỏ lượt thì ngày đó không ai bị loại.
    - **Gươm Excalibur:** Phiếu của người cầm gươm được tính 2.
-   - **Khiên Pridwen:** Nếu mục tiêu có điểm cao nhất duy nhất đang giữ khiên, khiên cứu người đó và cuộc vote kết thúc mà không ai bị loại. Khiên đã cứu ở lượt vote thì hết hiệu lực. Người còn giữ khiên sau lượt vote được bảo vệ khỏi cả cú cắn lẫn bình độc trong đêm kế tiếp, kể cả khi trúng cả hai. Khiên hết hiệu lực lúc trời sáng. Chết theo do Tình Nhân, Thợ săn hoặc liên kết hồi sinh vẫn xảy ra bình thường. Server chỉ công bố việc khiên cứu người khỏi vote sau khi khóa phiếu.
+   - **Khiên Pridwen:** Nếu mục tiêu có điểm cao nhất duy nhất đang giữ khiên, khiên vỡ trước cả làng, cứu người đó và cuộc vote kết thúc mà không ai bị loại. Người còn giữ khiên sau lượt vote được bảo vệ khỏi cả cú cắn lẫn bình độc trong đêm kế tiếp, kể cả khi trúng cả hai. Tác dụng ban đêm được xử lý kín và khiên hết hiệu lực lúc trời sáng. Chết theo do Tình Nhân, Thợ săn hoặc liên kết hồi sinh vẫn xảy ra bình thường.
 6. **Chuyển vòng.** Sau khi xử lý việc loại người và tất cả hiệu ứng chết theo, server xét thắng. Nếu ván chưa kết thúc, đêm tiếp theo bắt đầu.
 
 ## 4. Chết dây chuyền và điều kiện thắng

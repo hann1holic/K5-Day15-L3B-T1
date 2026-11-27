@@ -59,11 +59,12 @@ Hai pha dưới đây nằm trong WebSocket `state`. Bộ máy terminal tiếp t
 |---|---|
 | `night_slash` | Chỉ người chết trong đêm nhận lúc bắt đầu `day_arrival`. Hiện một nhát chém ngang màn hình của người đó. Những người còn lại tiếp tục thấy danh sách người tới phòng khách theo từng đợt. |
 | `vote_execution` | Cả phòng nhận cùng ID sự kiện và `player_id` của người bị loại trực tiếp bằng phiếu. Hiện cảnh dân làng ném người đó vào đống lửa ở quảng trường. Người chết dây chuyền không có cảnh riêng. Nếu hòa, bỏ lượt hoặc khiên chặn phiếu loại thì không có sự kiện này. |
+| `shield_break` | Cả phòng nhận cùng ID sự kiện và `player_id` của người được Khiên Pridwen cứu khỏi lượt vote. Phát cảnh khiên vỡ ở chỗ người này tại quảng trường. Chỉ phát khi server gửi `shield_break`. |
 | `victory` | Ghế thuộc phe thắng nhận khi `view.phase` chuyển sang `finished`. Người đã bị loại vẫn nhận theo phe cuối ván. |
 | `defeat` | Ghế thuộc phe thua nhận cùng lúc công bố kết quả. |
 | `draw` | Mọi ghế nhận nếu `view.winner` là `hoa`. |
 
-Dũng dùng `view.effect.id` để phát mỗi hiệu ứng một lần trong phòng kể cả khi server gửi lại cùng trạng thái. Trong 2 giây dành cho `vote_execution`, `view.phase` vẫn là `day_vote`, `allowed_actions` rỗng, `deadline` cho biết lúc kết thúc cảnh. Giữ quảng trường cho đến khi server gửi pha kế tiếp. Server gửi đêm mới hoặc công bố phe thắng sau khoảng này. Tín hiệu hết hiệu lực khi `view.effect` biến mất.
+Dũng dùng `view.effect.id` để phát mỗi hiệu ứng một lần trong phòng kể cả khi server gửi lại cùng trạng thái. Trong 2 giây dành cho `vote_execution` hoặc `shield_break`, `view.phase` vẫn là `day_vote`, `allowed_actions` rỗng, `deadline` cho biết lúc kết thúc cảnh. Giữ quảng trường cho đến khi server gửi pha kế tiếp. Server gửi đêm mới hoặc công bố phe thắng sau khoảng này. Tín hiệu hết hiệu lực khi `view.effect` biến mất.
 
 Khi kết thúc ván, server gửi tín hiệu riêng cùng `view.winner` và `reveal` sau cảnh bình minh hoặc cảnh vote cuối. Dùng `view.winner` để chọn phong cách cho phe thắng. Khi người chơi vào lại sau khi ván kết thúc, server gửi lại cùng `effect.id` và cùng kết quả của ghế đó.
 
@@ -94,7 +95,7 @@ Dũng dùng cùng một bảng ánh xạ tên, biểu tượng và công dụng 
 | `sword` | **Gươm Excalibur** | Phiếu của bạn tính gấp đôi trong ngày hôm nay. |
 | `shield` | **Khiên Pridwen** | Cứu bạn nếu bị vote loại hôm nay. Nếu còn khiên sau lượt vote, nó chặn cú cắn và bình độc trong đêm kế tiếp. |
 
-Trước khi khóa phiếu, chỉ chủ vật phẩm thấy tên cổ vật mình đang giữ. Sau khi nhận `view.lucky_vote_result`, dùng `double_voters` để hiện Gươm Excalibur đã nhân đôi phiếu và `shielded` để hiện Khiên Pridwen đã cứu người bị vote loại. Khiên còn hiệu lực qua đêm có `view.night_shield: true` trong trạng thái riêng của chủ khiên, kể cả khi `held_item` đã được dọn. Dùng trường này để hiện khiên còn bảo vệ người chơi. Server bỏ trường này ở `day_arrival`.
+Trước khi khóa phiếu, chỉ chủ vật phẩm thấy tên cổ vật mình đang giữ. Sau khi nhận `view.lucky_vote_result`, dùng `double_voters` để hiện Gươm Excalibur đã nhân đôi phiếu và `shielded` để hiện tên người được Khiên Pridwen cứu khỏi vote. Dùng `view.effect.type` bằng `shield_break` để phát cảnh khiên vỡ cho cả phòng. Khiên còn hiệu lực qua đêm có `view.night_shield: true` trong trạng thái riêng của chủ khiên, kể cả khi `held_item` đã được dọn. Ban đêm, quyền xem vẫn theo từng vai và việc khiên chặn đòn không có cảnh công khai. Server bỏ `view.night_shield` ở `day_arrival`.
 
 #### Đũa Morgana trong bản thử
 
