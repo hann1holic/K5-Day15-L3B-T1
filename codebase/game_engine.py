@@ -78,6 +78,8 @@ class GameEngine:
         self._public_chat = []
         self._private_chat = {player_id: [] for player_id in ids}
         self._votes = {}
+        self._day_items = {}
+        self._lucky_vote_result = None
         self._night_actions = {}
         self._wolf_targets = []
         self._wolf_strikes = 1
@@ -88,6 +90,14 @@ class GameEngine:
         self.round = 1
         self.winner = None
         self.phase = "pair" if roles["than_tinh_yeu"] else "night_wolf"
+
+    def living_ids(self):
+        return self._alive.copy()
+
+    def set_day_items(self, items):
+        if self.phase != "day_discussion":
+            raise ValueError("Lucky Day items must be set before the day vote.")
+        self._day_items = {pid: item for pid, item in items.items() if pid in self._alive}
 
     def _role(self, player_id):
         if player_id == self._promoted_seer:
@@ -154,6 +164,11 @@ class GameEngine:
             "eliminated": self._eliminated,
             "winner": self.winner,
         }
+        if self._lucky_vote_result is not None:
+            view["lucky_vote_result"] = {
+                "shielded": self._lucky_vote_result["shielded"],
+                "double_voters": self._lucky_vote_result["double_voters"][:],
+            }
         if self._factions[player_id] == "soi":
             view["wolf_peers"] = sorted(p for p in self._players
                                        if self._factions[p] == "soi" and p != player_id)
@@ -220,7 +235,10 @@ class GameEngine:
         return {"accepted": False, "phase": self.phase, "reason": reason}
 
     def _vote_leaders(self):
-        counts = Counter(self._votes.values())
+        counts = Counter()
+        for voter, target in self._votes.items():
+            double = self.phase == "day_vote" and self._day_items.get(voter) == "sword"
+            counts[target] += 2 if double else 1
         if not counts:
             return []
         highest = max(counts.values())
@@ -279,6 +297,15 @@ class GameEngine:
         elif self.phase == "day_vote":
             leaders = self._vote_leaders()
             self._eliminated = leaders[0] if len(leaders) == 1 else None
+            shielded = None
+            if self._day_items.get(self._eliminated) == "shield":
+                shielded, self._eliminated = self._eliminated, None
+            double_voters = sorted(voter for voter in self._votes if self._day_items.get(voter) == "sword")
+            self._lucky_vote_result = (
+                {"shielded": shielded, "double_voters": double_voters}
+                if shielded or double_voters else None
+            )
+            self._day_items.clear()
             self._last_deaths = self._resolve_deaths([self._eliminated])
             if not self._finish_if_ready():
                 self.round += 1
@@ -286,6 +313,7 @@ class GameEngine:
         return self.phase
 
     def _resolve_night(self):
+        self._lucky_vote_result = None
         victims = self._bite_victims()
         self._eliminated = None
         if "save" in self._night_actions:

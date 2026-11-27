@@ -12,6 +12,13 @@ Quyền vote cắn thuộc về phe Sói hiện tại. Một người có vai g�
 
 ## 2. Ban đêm
 
+### Về nhà trong 15 giây
+
+- Đêm đầu, người chơi có 15 giây để tới cửa một căn còn trống và bấm **F**. Server gán nhà cho yêu cầu hợp lệ đến trước. Ai chưa có nhà khi hết giờ được đưa ngẫu nhiên vào một căn còn trống.
+- Mỗi người sống có tối đa một nhà. Những đêm sau, bấm **F** ở nhà của mình để vào. Nếu đang ở ngoài lúc hết giờ, server đưa người chơi về nhà đã gán.
+- Khi chủ nhà chết, quyền sở hữu được thu hồi lúc mở lượt về nhà tiếp theo. Người khác có thể bấm **F** nhận căn này. Nhận nhà mới sẽ trả nhà cũ. Cửa của người vẫn còn sống chỉ chủ nhà được vào.
+- Lâu đài, biệt thự, nhà cấp 4 và nhà tranh dùng chung luật. Khi mọi người đã được đưa về nhà, server bắt đầu gọi Cupid nếu là lượt ghép đôi, hoặc gọi Sói.
+
 Cả làng đi ngủ. Server chỉ gọi riêng những người có quyền hành động. Trước lượt của một vai có kỹ năng, người có lượt nhận **5 giây chuẩn bị** với đếm ngược **5 → 4 → 3 → 2 → 1**, rồi mới được chọn mục tiêu. Người đang chờ chỉ nhận trạng thái **Cả làng đang ngủ**. Nhịp chờ công khai giữ nguyên kể cả khi một vai đã chết để người khác không suy ra vai nào còn sống từ tín hiệu gọi lượt.
 
 ### Phe Sói săn trước
@@ -36,9 +43,12 @@ Cuối đêm, server xử lý cú cắn sau Bảo vệ và bình cứu, áp dụ
 
 1. **Báo riêng cho người bị loại.** Mỗi người chết trong đêm nhận tín hiệu riêng để chuyển sang trạng thái theo dõi. Nhát chém ngang màn hình chỉ dành cho chính người bị loại.
 2. **Tập trung ở phòng khách.** Những người còn sống lần lượt xuất hiện ở phòng khách. Người chơi tự đối chiếu ai có mặt và ai vắng để suy ra người đã chết. Trong pha tập trung, server chỉ công bố người vừa xuất hiện. Danh sách người chết và trạng thái sống/chết của toàn bàn được giữ kín trong pha này.
-3. **Thảo luận.** Khi mọi người còn sống đã xuất hiện, mở thời gian bàn bạc. Người còn sống có thể trao đổi chung hoặc nhắn riêng.
-4. **Bỏ phiếu loại.** Hết giờ thảo luận, mỗi người còn sống bỏ một phiếu cho một người còn sống khác. Có thể đổi phiếu trước khi khóa. Phiếu khóa khi hết giờ, hoặc ngay khi mọi người còn sống đã bỏ phiếu. Người nhiều phiếu nhất bị treo cổ. Hòa ở vị trí cao nhất hoặc cả bàn bỏ lượt thì ngày đó không ai bị loại.
-5. **Chuyển vòng.** Sau khi xử lý việc loại người và tất cả hiệu ứng chết theo, server xét thắng. Nếu ván chưa kết thúc, đêm tiếp theo bắt đầu.
+3. **Lucky Day.** Vào ngày 2, 4, 6 và các ngày chẵn tiếp theo, sau khi mọi người đã tập trung và ván vẫn tiếp diễn, người sống có 30 giây để đi tìm vật phẩm. Mỗi lượt có một khiên và một gươm. Mỗi người giữ tối đa một món, có hiệu lực trong cuộc bỏ phiếu ngày đó. NPC cũng được tìm đồ.
+4. **Thảo luận.** Sau khi tập trung, hoặc khi hết Lucky Day, server đưa người sống tới quảng trường. Mọi người ở nguyên quảng trường để nói chuyện chung, nhắn riêng và bỏ phiếu.
+5. **Bỏ phiếu loại.** Hết giờ thảo luận, mỗi người còn sống bỏ một phiếu cho một người còn sống khác. Có thể đổi phiếu trước khi khóa. Phiếu khóa khi hết giờ, hoặc ngay khi mọi người còn sống đã bỏ phiếu. Người nhiều phiếu nhất bị treo cổ. Hòa ở vị trí cao nhất hoặc cả bàn bỏ lượt thì ngày đó không ai bị loại.
+   - **Gươm:** Phiếu của người cầm gươm được tính 2.
+   - **Khiên:** Nếu mục tiêu có điểm cao nhất duy nhất đang giữ khiên, không ai bị loại bằng phiếu trong ngày đó. Vật phẩm không chặn cú cắn, bình độc hay hiệu ứng chết theo. Server chỉ công bố vật phẩm đã phát huy tác dụng sau khi khóa phiếu.
+6. **Chuyển vòng.** Sau khi xử lý việc loại người và tất cả hiệu ứng chết theo, server xét thắng. Nếu ván chưa kết thúc, đêm tiếp theo bắt đầu.
 
 ## 4. Chết dây chuyền và điều kiện thắng
 

@@ -52,6 +52,19 @@ Hai pha dưới đây nằm trong WebSocket `state`. Bộ máy terminal tiếp t
 
 Ở `day_arrival`, `deadline` là `null`, `allowed_actions` và `last_deaths` rỗng, `winner` và `reveal` là `null`. Trường `players` duy trì trạng thái công khai trước khi xử lý cái chết trong đêm. Giao diện dùng `arrivals` để hiện người vừa xuất hiện, rồi dùng `you_died` và `phase_id` để báo riêng một lần. Người vào lại giữa pha nhận danh sách đã tập trung và tín hiệu riêng của chính mình.
 
+## Workflow map, nhà ngủ và Lucky Day
+
+Frontend đang ghép map có thể tạo phòng bằng `{"type":"create_room","name":"Lan","seats":6,"village":true}`. Phòng cũ mặc định dùng luồng hiện tại. Trạng thái phòng chờ có `village_enabled`. Pha map dùng cùng WebSocket và cùng `phase_id`, gửi trong phong bì `{"type":"action","phase_id":7,"action":{...}}`.
+
+| Pha | Thời gian và dữ liệu nhận | Hành động |
+|---|---|---|
+| `night_housing` | 15 giây trước lượt Cupid hoặc Sói. `view.village.houses` chứa mã, loại, tọa độ cửa và chủ nhà. `home_id` và `inside_home` của người nhận cho biết đã vào nhà chưa. | `{"type":"move","dx":1,"dy":0}` hoặc `{"type":"enter_house","house_id":"H03"}`. Dùng phím F để gửi hành động vào nhà. |
+| Lượt đêm | `view.village.area` là `home` cho người ngủ và các vai dùng kỹ năng. Chỉ Sói đang vote cắn nhận `living_room` và danh sách chủ nhà để frontend gắn tên ở cửa. | Hành động theo vai tiếp tục dùng hợp đồng ở trên. |
+| `lucky_day` | 30 giây sau khi tập trung xong vào ngày chẵn. `visible_items` chỉ có vật phẩm gần người nhận và chưa bị lấy. `held_item` là vật phẩm của chính người nhận. | `move` hoặc `{"type":"pick_up","item_id":"shield"}`. ID của hai vật phẩm là `shield` và `sword`. |
+| `day_discussion`, `day_vote` | `view.village.area` là `square`. Khi có gươm hoặc khiên phát huy tác dụng, trạng thái sau khi khóa phiếu có `view.lucky_vote_result` với `shielded` và `double_voters`. | Chat và vote như cũ. Server từ chối đi lại trong hai pha này. |
+
+Bản tọa độ mẫu do server cung cấp trong `view.village.size`, `square`, `positions` và `houses`. Tọa độ bắt đầu từ 0. Mỗi bước đi một ô theo bốn hướng. Lấy đồ hoặc vào nhà trong phạm vi một ô theo Manhattan. Server kiểm quyền, khoảng cách và mã lượt. Nếu hai người cùng tranh một nhà hoặc một món, thao tác hợp lệ đến server trước được ghi nhận. Giao diện đọc trạng thái kế tiếp để đồng bộ tọa độ và báo lỗi từ `action_result` như `house_taken`, `item_unavailable` hoặc `too_far`.
+
 Chạy từ thư mục gốc để kiểm tra bộ máy với ván mock:
 
 ~~~bash

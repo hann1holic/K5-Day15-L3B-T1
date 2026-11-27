@@ -29,6 +29,10 @@ MAX_CHAT_LENGTH = 200
 BOT_TIMEOUT = 5
 PREPARE_SECONDS = 5
 DAWN_STEP_SECONDS = 0.7
+HOUSING_SECONDS = 15
+LUCKY_DAY_SECONDS = 30
+MAP_UPDATE_SECONDS = 0.2
+BOT_SEARCH_SECONDS = 0.5
 BOT_MARGIN_SECONDS = 0.3
 SEND_TIMEOUT = 5
 ROOM_IDLE_SECONDS = 300
@@ -143,7 +147,10 @@ class GameServer:
     async def _enter(self, connection, message):
         kind = message["type"]
         if kind == "create_room":
-            room, member = self.rooms.create(message.get("name"), message.get("seats"), connection)
+            room, member = self.rooms.create(
+                message.get("name"), message.get("seats"), connection,
+                village_enabled=message.get("village", False),
+            )
         elif kind in {"join_room", "rejoin"}:
             room = self.rooms.get(message.get("code"))
             member = None
@@ -172,7 +179,8 @@ class GameServer:
             room.leave(member)
             if room.members:
                 pid = member.player_id
-                if (room.accepting and pid is not None and pid not in room.acted
+                map_phase = room.village is not None and room.village.phase is not None
+                if (room.accepting and not map_phase and pid is not None and pid not in room.acted
                         and room.engine.allowed_actions(pid)):
                     room.bot_tasks.append(asyncio.create_task(self._bot_turn(room, room.phase_id, pid)))
                 await self._broadcast(room)
@@ -206,6 +214,9 @@ class GameServer:
     async def _human_action(self, room, member, message):
         engine = room.engine
         action = message.get("action")
+        if room.village is not None and room.village.phase is not None:
+            await self._village_action(room, member, action, message.get("phase_id"))
+            return
         if not isinstance(action, dict):
             result = {"accepted": False, "reason": "invalid_action"}
         elif not room.accepting or engine is None or message.get("phase_id", room.phase_id) != room.phase_id:
@@ -227,6 +238,19 @@ class GameServer:
                 room.acted.add(member.player_id)
             self._check_ready(room)
             await self._broadcast_action(room, member.player_id)
+
+    async def _village_action(self, room, member, action, phase_id):
+        now = asyncio.get_running_loop().time()
+        if not isinstance(action, dict):
+            reason = "invalid_action"
+        elif not room.accepting or phase_id != room.phase_id or now >= room.turn_end:
+            reason = "action_not_allowed"
+        else:
+            reason = room.village.act(member.player_id, action, now)
+        result = {"type": "action_result", "accepted": reason is None}
+        if reason is not None:
+            result["reason"] = reason
+        await send(member.connection, result)
 
     def _check_ready(self, room):
         engine = room.engine
@@ -263,8 +287,13 @@ class GameServer:
     async def _play(self, room):
         engine = room.engine
         night_end = None
+        housed_round = None
         try:
             while engine.phase != "finished":
+                if (room.village is not None and engine.phase in {"pair", "night_wolf"}
+                        and housed_round != engine.round):
+                    await self._play_village_phase(room, "night_housing", HOUSING_SECONDS)
+                    housed_round = engine.round
                 async with room.lock:
                     room.phase_id += 1
                     phase_id = room.phase_id
@@ -319,11 +348,19 @@ class GameServer:
                             engine.submit_action(pid, action)
                     dawn_views = room.capture_dawn_views() if phase == "night_hunter" else None
                     engine.advance()
+                    if phase == "day_vote" and room.village is not None:
+                        room.village.held.clear()
                     if dawn_views is not None:
                         room.begin_dawn(dawn_views)
                 await self._cancel_bots(room)
                 if dawn_views is not None:
                     await self._play_dawn(room)
+                    if room.village is not None and engine.phase == "day_discussion":
+                        if engine.round % 2 == 0:
+                            await self._play_village_phase(room, "lucky_day", LUCKY_DAY_SECONDS)
+                        else:
+                            async with room.lock:
+                                room.village.go_to_square(engine.living_ids())
             async with room.lock:
                 room.phase_id += 1
                 room.deadline = None
@@ -362,6 +399,42 @@ class GameServer:
         await asyncio.sleep(DAWN_STEP_SECONDS)
         async with room.lock:
             room.dawn = None
+
+    async def _play_village_phase(self, room, phase, seconds):
+        loop = asyncio.get_running_loop()
+        village = room.village
+        async with room.lock:
+            alive = room.engine.living_ids()
+            if phase == "night_housing":
+                village.begin_housing(alive)
+            else:
+                village.begin_lucky_day(alive)
+            room.phase_id += 1
+            room.acted.clear()
+            room.turn_end = loop.time() + seconds
+            room.deadline = int((time.time() + seconds) * 1000)
+            room.accepting = True
+            village.dirty = False
+            await self._broadcast(room)
+        next_bot_search = loop.time() + BOT_SEARCH_SECONDS
+        while loop.time() < room.turn_end:
+            await asyncio.sleep(min(MAP_UPDATE_SECONDS, max(0, room.turn_end - loop.time())))
+            async with room.lock:
+                now = loop.time()
+                if now >= room.turn_end:
+                    break
+                if phase == "lucky_day" and now >= next_bot_search:
+                    village.bots_search(room.bots, now)
+                    next_bot_search = now + BOT_SEARCH_SECONDS
+                if village.dirty:
+                    village.dirty = False
+                    await self._broadcast(room)
+        async with room.lock:
+            room.accepting = False
+            if phase == "night_housing":
+                village.finish_housing()
+            else:
+                room.engine.set_day_items(village.finish_lucky_day())
 
     async def _cancel_bots(self, room):
         tasks, room.bot_tasks = room.bot_tasks, []

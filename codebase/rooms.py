@@ -5,6 +5,7 @@ import secrets
 from dataclasses import dataclass, field
 
 from .game_engine import GameEngine, deal_roles
+from .village import Village
 
 
 ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -50,11 +51,13 @@ class Dawn:
 
 
 class Room:
-    def __init__(self, code, seats, rng, timers):
+    def __init__(self, code, seats, rng, timers, *, village_enabled=False):
         self.code = code
         self.timers = timers.copy()
         self.seats = seats
         self.rng = rng
+        self.village_enabled = village_enabled
+        self.village = None
         self.members = {}
         self.host = None
         self.engine = None
@@ -123,6 +126,7 @@ class Room:
     def back_to_lobby(self):
         """Drop a broken match so the host can start a fresh one."""
         self.engine = None
+        self.village = None
         self.accepting = False
         self.deadline = self.night_deadline = self.night_phase_id = self.prepare_deadline = None
         self.dawn = None
@@ -183,6 +187,7 @@ class Room:
         self.rng.shuffle(bot_names)
         self.names.update(zip(bot_ids, bot_names))
         self.engine = GameEngine(players, rng=self.rng, fixed_night=True)
+        self.village = Village(self.rng) if self.village_enabled else None
         self.night_phase_id = self.night_deadline = self.prepare_deadline = None
         self.dawn = None
 
@@ -198,6 +203,7 @@ class Room:
                         for m in self.members.values()],
             "bots_on_start": self.seats - len(self.members),
             "timers": self.timers.copy(),
+            "village_enabled": self.village_enabled,
             "can_start": member is self.host,
         }
 
@@ -226,6 +232,10 @@ class Room:
             )
             deadline = reveal = None
             acted = False
+        elif self.village is not None and self.village.phase is not None:
+            view["phase"] = self.village.phase
+            view["allowed_actions"] = self.village.allowed_actions(member.player_id)
+            acted = False
         elif view["phase"].startswith("night_") or view["phase"] == "pair":
             preparing = self.prepare_deadline is not None and bool(view["allowed_actions"])
             if preparing or not self.accepting or not view["allowed_actions"]:
@@ -239,7 +249,9 @@ class Room:
                     phase_id = self.night_phase_id
                 view["allowed_actions"] = []
                 acted = False
-        if view["phase"] in {"night_wait", "night_prepare", "day_arrival"}:
+        if self.village is not None and self.dawn is None:
+            view["village"] = self.village.view(member.player_id, view["phase"])
+        if view["phase"] in {"night_wait", "night_prepare", "night_housing", "day_arrival"}:
             view.pop("strikes_remaining", None)
             view.pop("wolf_votes", None)
         return {
@@ -255,13 +267,15 @@ class Rooms:
         self._rooms = {}
         self.default_timers = default_timers.copy()
 
-    def create(self, name, seats, connection):
+    def create(self, name, seats, connection, *, village_enabled=False):
         seats = seat_count(seats)
+        if type(village_enabled) is not bool:
+            raise RoomError("bad_message", "Cấu hình làng cần giá trị true hoặc false.")
         while True:
             code = "".join(secrets.choice(ROOM_ALPHABET) for _ in range(4))
             if code not in self._rooms:
                 break
-        room = Room(code, seats, self.rng, self.default_timers)
+        room = Room(code, seats, self.rng, self.default_timers, village_enabled=village_enabled)
         member = room.join(name, connection)
         self._rooms[code] = room
         return room, member
