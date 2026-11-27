@@ -68,6 +68,21 @@ Gói miễn phí báo hết lượt: thêm `--wait 4` sau `eval` hoặc `simulat
 
 Nhóm dùng stack khác (Node, Streamlit, notebook…): sửa hàm `run_app()` trong `run.py` để `python run.py` vẫn chạy được bản chạy thử, và giữ `answer()` trong `codebase/agent.py` để `eval`, `simulate` chạy được.
 
+## Chạy server nhiều người
+
+Từ thư mục gốc, cài thư viện WebSocket và chạy server:
+
+~~~bash
+python -m pip install -r requirements.txt
+python -m codebase.server
+~~~
+
+Giao diện kết nối tới `ws://127.0.0.1:8000/ws`. Khi thử trên nhiều máy cùng mạng, chạy `python -m codebase.server --host 0.0.0.0` trên máy chủ và dùng IP của máy đó trong cấu hình giao diện. Server giữ phòng và ván trong bộ nhớ của tiến trình.
+
+Chủ phòng chọn 4–20 ghế. Chỗ trống được NPC ngồi thay. Người mất kết nối có thể vào lại bằng mã phòng và token đã nhận. Server mặc định dùng NPC mock khi `MODEL_PROVIDER=fake`. Có thể thử nhanh với `--discussion-seconds 10 --vote-seconds 5 --night-seconds 5`.
+
+Mỗi tin `state` có `phase_id`. Giao diện có thể gửi lại trường này trong tin `action` để từ chối thao tác đến trễ, kể cả giữa hai lượt Sói cùng tên pha. Bản terminal vẫn chạy bằng `python run.py`.
+
 ## Bản chạy thử — viết ở đâu
 
 | File | Viết gì | Bước guide |
