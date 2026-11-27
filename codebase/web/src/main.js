@@ -62,7 +62,7 @@ function loadSession(storage) {
   }
 }
 
-function storeSession(value) {
+function storeSession(value, { keepRecent = false } = {}) {
   const previous = session;
   session = value;
   try {
@@ -72,7 +72,7 @@ function storeSession(value) {
       localStorage.setItem(sessionKey, serialized);
     } else {
       sessionStorage.removeItem(sessionKey);
-      if (loadSession(localStorage)?.token === previous?.token) localStorage.removeItem(sessionKey);
+      if (!keepRecent && loadSession(localStorage)?.token === previous?.token) localStorage.removeItem(sessionKey);
     }
   } catch {
     // The current connection still works if storage is blocked.
@@ -139,7 +139,7 @@ function send(type, fields = {}) {
   return true;
 }
 
-function connect() {
+function connect({ preserveNotice = false } = {}) {
   if (socket && socket.readyState < WebSocket.CLOSING) return;
   clearTimeout(retry);
   connection("waiting");
@@ -154,7 +154,7 @@ function connect() {
   socket = ws;
   ws.addEventListener("open", () => {
     if (ws !== socket) return;
-    notice();
+    if (!preserveNotice) notice();
     connection("online");
     if (session) {
       rejoining = true;
@@ -207,6 +207,21 @@ function receive(message) {
       renderActionsAndChat();
       break;
     case "error":
+      if (message.code === "session_replaced") {
+        const previous = socket;
+        socket = null;
+        resetRoom({ keepRecent: true });
+        previous?.close();
+        notice(message.message, "error");
+        connect({ preserveNotice: true });
+        break;
+      }
+      if (message.code === "game_error") {
+        if (room && online()) send("leave");
+        resetRoom();
+        notice(message.message || "Ván đã dừng. Bạn đã trở về sảnh.", "error");
+        break;
+      }
       if (savingTimers) {
         savingTimers = false;
         updateTimerControls();
@@ -336,6 +351,10 @@ function renderGame() {
   $("role-detail").textContent = "Phe " + (factions[view.faction] || view.faction) + ". " + (roles[view.role]?.[1] || "");
   const info = [];
   if (view.wolf_peers?.length) info.push("Đồng đội Sói: " + view.wolf_peers.map(nameOf).join(", "));
+  if (view.phase === "night_wolf" && view.wolf_votes) {
+    const votes = Object.entries(view.wolf_votes).map(([voter, target]) => nameOf(voter) + " → " + nameOf(target));
+    info.push("Phiếu cắn: " + (votes.join(", ") || "chưa có phiếu"));
+  }
   if (view.strikes_remaining > 1) info.push("Còn " + view.strikes_remaining + " lượt cắn đêm nay");
   if (view.partner) info.push("Tình Nhân: " + nameOf(view.partner.player_id) + " (" + roleName(view.partner.role) + ")");
   if (view.inspections?.length) {
@@ -398,7 +417,7 @@ function actionGuide(view, actions) {
   }
   if (actions.length) return "Chọn mục tiêu bên dưới rồi bấm nút kỹ năng. Mỗi kỹ năng chỉ hiện ở đúng lượt.";
   if (view.phase === "day_discussion") return "Bàn bạc trong chat chung hoặc chat riêng. Lượt bỏ phiếu sẽ mở khi hết giờ.";
-  return "Chưa đến lượt của bạn. Sói và các vai đang thực hiện hành động riêng.";
+  return "Chưa đến lượt của bạn. Đồng hồ đang đếm đến sáng, trừ khi đến lượt kỹ năng của bạn.";
 }
 
 function actionForm(option) {
@@ -505,8 +524,8 @@ function renderResult() {
   showScreen("result");
 }
 
-function resetRoom() {
-  storeSession(null);
+function resetRoom({ keepRecent = false } = {}) {
+  storeSession(null, { keepRecent });
   match = room = lobby = null;
   awaitingAction = rejoining = false;
   chatChannel = "public";
