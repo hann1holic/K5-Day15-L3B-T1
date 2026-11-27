@@ -24,7 +24,7 @@
     "soi_thuong": {
       "name": "Sói thường",
       "faction": "soi",
-      "description": "Biết đồng đội Sói. Mỗi đêm cùng đàn vote cắn một người ngoài phe Sói.",
+      "description": "Khi săn, Sói hiện nguyên hình bên đống lửa ở quảng trường để bàn riêng và vote cắn. Đàn có thể cắn người ngoài phe hoặc chủ động hy sinh Sói con.",
       "phase_hints": {
         "night_wolf": "Chọn một người để cắn. Đàn vote trùng nhau thì chắc chắn hơn, hoà phiếu thì bộ máy bốc ngẫu nhiên."
       }
@@ -32,7 +32,7 @@
     "soi_con": {
       "name": "Sói con",
       "faction": "soi",
-      "description": "Như Sói thường. Khi Sói con chết, đêm kế tiếp đàn Sói được cắn hai người.",
+      "description": "Cùng đàn săn mồi. Các Sói khác có thể vote cắn Sói con. Khi Sói con chết, đêm kế tiếp đàn Sói được cắn hai người.",
       "phase_hints": {
         "night_wolf": "Chọn một người để cắn cùng đàn."
       }

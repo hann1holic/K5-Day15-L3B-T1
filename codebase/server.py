@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 from websockets.asyncio.server import serve
 from websockets.exceptions import ConnectionClosed
 
-from .game_engine import FIXED_NIGHT_SLOTS
+from .game_engine import CHAT_ACTIONS, FIXED_NIGHT_SLOTS
 from .rooms import RoomError, Rooms
 
 
@@ -52,7 +52,7 @@ async def send(connection, message):
 
 
 def clip_text(action):
-    if (isinstance(action, dict) and action.get("type") in ("chat", "whisper")
+    if (isinstance(action, dict) and action.get("type") in CHAT_ACTIONS
             and isinstance(action.get("text"), str)):
         return {**action, "text": action["text"][:MAX_CHAT_LENGTH]}
     return action
@@ -71,7 +71,8 @@ def fallback(options, rng):
         if kind == "pair" and len(targets) >= 2:
             return {"type": kind, "target_ids": rng.sample(targets, 2)}
         if kind == "vote" and targets:
-            return {"type": kind, "target_id": rng.choice(targets)}
+            outsiders = [pid for pid in targets if pid not in option.get("ally_target_ids", ())]
+            return {"type": kind, "target_id": rng.choice(outsiders or targets)}
     return None
 
 
@@ -226,7 +227,7 @@ class GameServer:
                 and not engine.allowed_actions(member.player_id)):
             # Answer before the engine so its reply cannot name a hidden private turn.
             result = {"accepted": False, "reason": "action_not_allowed"}
-        elif action.get("type") in ("chat", "whisper") and (
+        elif action.get("type") in CHAT_ACTIONS and (
                 not isinstance(action.get("text"), str) or len(action["text"]) > MAX_CHAT_LENGTH):
             result = {"accepted": False, "reason": "invalid_text"}
         else:
@@ -234,7 +235,7 @@ class GameServer:
         await send(member.connection, {"type": "action_result", **result})
         if result["accepted"]:
             # Chat never uses up a turn, and the witch may still have a second potion.
-            if action["type"] not in ("chat", "whisper") and (
+            if action["type"] not in CHAT_ACTIONS and (
                     engine.phase != "night_witch" or not engine.allowed_actions(member.player_id)):
                 room.acted.add(member.player_id)
             self._check_ready(room)
@@ -492,6 +493,9 @@ class GameServer:
                     break
                 action = clip_text(action)
                 if room.engine.submit_action(player_id, action)["accepted"]:
+                    if action["type"] == "wolf_chat":
+                        await self._broadcast_action(room, player_id)
+                        continue
                     room.acted.add(player_id)
                     self._check_ready(room)
                     await self._broadcast_action(room, player_id)

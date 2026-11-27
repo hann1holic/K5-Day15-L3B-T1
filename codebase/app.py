@@ -32,11 +32,11 @@ def _show_view(view, cursors):
         print("Người yêu: %s" % json.dumps(view["partner"], ensure_ascii=False))
     if view.get("inspections"):
         print("Kết quả soi: %s" % json.dumps(view["inspections"], ensure_ascii=False))
-    for channel in ("public_chat", "private_chat"):
-        messages = view[channel]
-        key = (pid, channel)
+    for channel in ("public_chat", "private_chat", "wolf_chat"):
+        messages = view.get(channel, [])
+        key = (pid, channel, view["round"] if channel == "wolf_chat" else None)
         for message in messages[cursors.get(key, 0):]:
-            label = "Riêng" if channel == "private_chat" else "Chat"
+            label = {"private_chat": "Riêng", "wolf_chat": "Chat Sói"}.get(channel, "Chat")
             print("%s %s: %s" % (label, message["player_id"], message["text"]))
         cursors[key] = len(messages)
     for index, option in enumerate(view["allowed_actions"], 1):
@@ -60,7 +60,7 @@ def _parse_command(text, options):
         if any(o["type"] in {"vote", "bite", "pair"} for o in options):
             raise ValueError("Pha này bắt buộc chọn mục tiêu.")
         return None
-    if kind == "chat":
+    if kind in {"chat", "wolf_chat"}:
         return {"type": kind, "text": body}
     if kind == "whisper":
         target, _, message = body.partition(" ")
@@ -92,6 +92,8 @@ def _human_turn(engine, pid):
         result = engine.submit_action(pid, action)
         if not result["accepted"]:
             print("Bị từ chối: " + result["reason"])
+            continue
+        if action["type"] == "wolf_chat":
             continue
         if engine.phase != "night_witch":
             return
@@ -146,7 +148,8 @@ def _fallback(options, preferred=None):
         if kind == "pair" and len(targets) >= 2:
             return {"type": kind, "target_ids": targets[:2]}
         if kind in {"vote", "bite"} and targets:
-            return {"type": kind, "target_id": targets[0]}
+            outsiders = [pid for pid in targets if pid not in option.get("ally_target_ids", ())]
+            return {"type": kind, "target_id": (outsiders or targets)[0]}
     return None
 
 
@@ -170,6 +173,8 @@ def _npc_turn(engine, pid, totals):
             result = engine.submit_action(pid, action)
             if result["accepted"]:
                 _log_action(pid, action, view["phase"])
+                if action["type"] == "wolf_chat":
+                    continue
                 return
         except Exception:
             # Không đưa dữ liệu lỗi có thể chứa vai riêng lên terminal.

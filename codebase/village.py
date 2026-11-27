@@ -3,6 +3,7 @@
 WIDTH = 24
 HEIGHT = 20
 SQUARE = (11, 9)
+BONFIRE_OFFSETS = ((-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0))
 MOVE_INTERVAL = 0.10
 VISION_RADIUS = 3
 INTERACT_RADIUS = 1
@@ -149,20 +150,22 @@ class Village:
                 dx, dy = self.rng.choice(choices)
             self.act(pid, {"type": "move", "dx": dx, "dy": dy}, now)
 
-    def view(self, pid, phase):
+    def view(self, pid, phase, wolf_pack=()):
         inside = pid in self.sleeping and phase != "night_wolf" and (
             phase.startswith("night_") or phase == "pair"
         )
+        positions = self.positions.copy()
+        for wolf, (dx, dy) in zip(wolf_pack, BONFIRE_OFFSETS):
+            positions[wolf["player_id"]] = (SQUARE[0] + dx, SQUARE[1] + dy)
         view = {
             "size": {"width": WIDTH, "height": HEIGHT},
             "square": {"x": SQUARE[0], "y": SQUARE[1]},
-            "positions": {key: {"x": x, "y": y} for key, (x, y) in self.positions.items()},
+            "positions": {key: {"x": x, "y": y} for key, (x, y) in positions.items()},
             "home_id": self.homes.get(pid),
             "area": (
-                "living_room" if phase == "night_wolf" else
                 "home" if inside else
                 "map" if phase in {"night_housing", "lucky_day"} else
-                "square" if phase.startswith("day_") else "home"
+                "square" if phase.startswith("day_") or phase == "night_wolf" else "home"
             ),
             "inside_home": inside,
             "held_item": self.held.get(pid),

@@ -30,6 +30,7 @@ Gửi ID đã chết hoặc chọn ngoài danh sách hợp lệ sẽ trả `acce
 |---|---|---|
 | `pair` | `pair` | `target_ids` chứa hai ID khác nhau. |
 | `night_wolf`, `day_vote` | `vote` | `target_id`. Với lượt cắn thứ hai, pha vẫn là `night_wolf`, host đọc lại trạng thái và danh sách mục tiêu. |
+| `night_wolf` | `wolf_chat` | `text` từ 1 đến 200 ký tự. Chỉ Sói đang săn nhận tin nhắn này. |
 | `night_protect` | `protect` | `target_id`. |
 | `night_inspect` | `inspect` | `target_id`. Kết quả nằm trong `inspections` của Tiên tri sau khi khóa pha. |
 | `night_witch` | `save`, `poison` | `target_id`. Có thể gửi mỗi loại một lần nếu còn bình. |
@@ -68,11 +69,14 @@ Frontend đang ghép map có thể tạo phòng bằng `{"type":"create_room","n
 | Pha | Thời gian và dữ liệu nhận | Hành động |
 |---|---|---|
 | `night_housing` | 15 giây trước lượt Cupid hoặc Sói. `view.village.houses` chứa mã, loại, tọa độ cửa và chủ nhà. `home_id` và `inside_home` của người nhận cho biết đã vào nhà chưa. | `{"type":"move","dx":1,"dy":0}` hoặc `{"type":"enter_house","house_id":"H03"}`. Dùng phím F để gửi hành động vào nhà. |
-| Lượt đêm | `view.village.area` là `home` cho người ngủ và các vai dùng kỹ năng. Chỉ Sói đang vote cắn nhận `living_room` và danh sách chủ nhà để frontend gắn tên ở cửa. | Hành động theo vai tiếp tục dùng hợp đồng ở trên. |
+| `night_wolf` | Chỉ Sói đang săn nhận `view.village.area: "square"`, vị trí của đàn quanh `view.village.square` và danh sách chủ nhà để gắn tên ở cửa. | `wolf_chat` để bàn riêng, `vote` để chốt mục tiêu. Server từ chối `move`. |
+| Các lượt đêm còn lại | `view.village.area` là `home` cho người ngủ và các vai dùng kỹ năng. | Hành động theo vai tiếp tục dùng hợp đồng ở trên. |
 | `lucky_day` | 30 giây sau khi tập trung xong vào ngày chẵn. `visible_items` chỉ có vật phẩm gần người nhận và chưa bị lấy. `held_item` là vật phẩm của chính người nhận. | `move` hoặc `{"type":"pick_up","item_id":"shield"}`. ID của hai vật phẩm là `shield` và `sword`. |
 | `day_discussion`, `day_vote` | `view.village.area` là `square`. Khi có gươm hoặc khiên phát huy tác dụng, trạng thái sau khi khóa phiếu có `view.lucky_vote_result` với `shielded` và `double_voters`. | Chat và vote như cũ. Server từ chối đi lại trong hai pha này. |
 
 Bản tọa độ mẫu do server cung cấp trong `view.village.size`, `square`, `positions` và `houses`. Tọa độ bắt đầu từ 0. Mỗi bước đi một ô theo bốn hướng. Lấy đồ hoặc vào nhà trong phạm vi một ô theo Manhattan. Server kiểm quyền, khoảng cách và mã lượt. Nếu hai người cùng tranh một nhà hoặc một món, thao tác hợp lệ đến server trước được ghi nhận. Giao diện đọc trạng thái kế tiếp để đồng bộ tọa độ và báo lỗi từ `action_result` như `house_taken`, `item_unavailable` hoặc `too_far`.
+
+Trong `night_wolf`, `view.wolf_pack` chứa `player_id` và `role` (`soi_thuong` hoặc `soi_con`) của từng Sói còn sống trong đàn, kể cả người nhận. Dũng dùng danh sách này để hiện đúng hình từng Sói bên đống lửa. `view.wolf_chat` chứa tin nhắn riêng của đàn trong đêm đó. Trong hành động `vote`, `target_ids` là toàn bộ mục tiêu hợp lệ và `ally_target_ids` đánh dấu Sói con nếu đàn có thể cắn đồng đội. Các trường này chỉ được gửi cho Sói đang có lượt săn.
 
 Chạy từ thư mục gốc để kiểm tra bộ máy với ván mock:
 

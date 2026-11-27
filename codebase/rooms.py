@@ -277,12 +277,13 @@ class Room:
                 view["allowed_actions"] = []
                 acted = False
         if self.village is not None and self.dawn is None:
-            view["village"] = self.village.view(member.player_id, view["phase"])
+            pack = view.get("wolf_pack", ()) if view["phase"] == "night_wolf" else ()
+            view["village"] = self.village.view(member.player_id, view["phase"], pack)
         if self.vote_execution is not None or view["phase"] in {
             "night_wait", "night_prepare", "night_housing", "day_arrival",
         }:
-            view.pop("strikes_remaining", None)
-            view.pop("wolf_votes", None)
+            for key in ("strikes_remaining", "wolf_votes", "wolf_pack", "wolf_chat"):
+                view.pop(key, None)
         return {
             "type": "state", "code": self.code, "me": member.player_id,
             "names": self.names.copy(), "deadline": deadline, "phase_id": phase_id,

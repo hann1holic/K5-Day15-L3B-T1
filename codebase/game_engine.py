@@ -6,6 +6,7 @@ from random import Random
 
 
 WOLF_ROLES = {"soi_thuong", "soi_con"}
+CHAT_ACTIONS = ("chat", "whisper", "wolf_chat")
 SPECIAL_ROLES = {
     "soi_con", "bao_ve", "tien_tri", "tien_tri_tap_su",
     "phu_thuy", "tho_san", "than_tinh_yeu",
@@ -77,6 +78,7 @@ class GameEngine:
         self._inspections = {}
         self._public_chat = []
         self._private_chat = {player_id: [] for player_id in ids}
+        self._wolf_chat = []
         self._votes = {}
         self._day_items = {}
         self._lucky_vote_result = None
@@ -116,9 +118,10 @@ class GameEngine:
             self._wolf_strikes < 2 or not self._wolf_targets
         ):
             return []
-        targets = sorted(p for p in self._alive if self._factions[p] != "soi"
-                         and p not in self._wolf_targets)
-        return [{"type": "vote", "target_ids": targets}] if targets else []
+        targets = [p for p in self._others(player_id) if p not in self._wolf_targets
+                   and (self._factions[p] != "soi" or self._role(p) == "soi_con")]
+        return [{"type": "vote", "target_ids": targets,
+                 "ally_target_ids": [p for p in targets if self._factions[p] == "soi"]}] if targets else []
 
     def allowed_actions(self, player_id):
         if player_id not in self._alive:
@@ -127,7 +130,10 @@ class GameEngine:
         role = self._role(player_id)
         if self.phase == "pair" and role == "than_tinh_yeu" and not self._lover_pair:
             return [{"type": "pair", "target_ids": sorted(self._alive), "target_count": 2}]
-        if self.phase in {"night_wolf", "day_vote"}:
+        if self.phase == "night_wolf":
+            votes = self._vote_options(player_id)
+            return [*votes, {"type": "wolf_chat"}] if votes else []
+        if self.phase == "day_vote":
             return self._vote_options(player_id)
         if self.phase == "day_discussion":
             return [{"type": "chat"}, {"type": "whisper", "target_ids": self._others(player_id)}]
@@ -172,7 +178,12 @@ class GameEngine:
         if self._factions[player_id] == "soi":
             view["wolf_peers"] = sorted(p for p in self._players
                                        if self._factions[p] == "soi" and p != player_id)
-            if self.phase == "night_wolf" and player_id in self._alive:
+            if self.phase == "night_wolf" and view["allowed_actions"]:
+                view["wolf_pack"] = [
+                    {"player_id": pid, "role": self._role(pid)}
+                    for pid in sorted(self._alive) if self._factions[pid] == "soi"
+                ]
+                view["wolf_chat"] = [message.copy() for message in self._wolf_chat]
                 view["wolf_votes"] = dict(self._votes)
                 view["strikes_remaining"] = self._wolf_strikes - len(self._wolf_targets)
         if player_id in self._lover_pair:
@@ -214,7 +225,7 @@ class GameEngine:
         else:
             if "target_ids" in option and target not in option["target_ids"]:
                 return self._reject("invalid_target")
-            if kind in {"chat", "whisper"}:
+            if kind in CHAT_ACTIONS:
                 body = action.get("text")
                 if not isinstance(body, str) or not body.strip():
                     return self._reject("invalid_text")
@@ -223,6 +234,8 @@ class GameEngine:
                     message["target_id"] = target
                     self._private_chat[player_id].append(message)
                     self._private_chat[target].append(message)
+                elif kind == "wolf_chat":
+                    self._wolf_chat.append(message)
                 else:
                     self._public_chat.append(message)
             elif kind == "vote":
@@ -253,6 +266,7 @@ class GameEngine:
         self._wolf_slot = 1
         self._wolf_bonus = False
         self._wolf_targets.clear()
+        self._wolf_chat.clear()
         self._night_actions.clear()
         self._votes.clear()
 

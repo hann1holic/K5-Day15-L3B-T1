@@ -23,9 +23,10 @@ Cả làng đi ngủ. Server chỉ gọi riêng những người có quyền hà
 
 ### Phe Sói săn trước
 
-- Các Sói còn sống được gọi riêng vào **phòng khách**. Mỗi Sói chọn mục tiêu bằng cách bấm tên treo trước phòng của một người còn sống ngoài phe mình.
+- Khi mở lượt săn, các Sói còn sống hiện nguyên hình quanh **đống lửa ở quảng trường** và đứng yên để bàn riêng, rồi vote cắn. Chỉ Sói đang săn mới thấy nhau và phân biệt được hình **Sói thường** với **Sói con**. Mọi người khác vẫn ở nhà.
+- Sói được vote cắn người ngoài phe hoặc **Sói con** của đàn để tạo hỏa mù. Không được tự cắn mình hoặc cắn đồng đội Sói thường. Chọn mục tiêu bằng cách bấm tên trên cửa nhà.
 - Khi khóa phiếu, người có nhiều phiếu nhất trở thành **mục tiêu cắn**. Nếu nhiều người bằng nhau ở mức cao nhất, server bốc ngẫu nhiên đúng một người trong nhóm đó. Nếu Sói bỏ lượt hết, lượt đó không chọn mục tiêu.
-- Nếu Sói con chết, đêm kế tiếp phe Sói được chọn tối đa **hai mục tiêu khác nhau**. Người đã được chọn ở lượt đầu bị loại khỏi danh sách mục tiêu lượt hai.
+- Nếu Sói con thực sự chết, kể cả do đồng đội cắn, đêm kế tiếp phe Sói được chọn tối đa **hai mục tiêu khác nhau**. Người đã được chọn ở lượt đầu bị loại khỏi danh sách mục tiêu lượt hai. Nếu Sói con được cứu và sống sót, số lượt cắn vẫn như cũ.
 - Phiếu chỉ chốt mục tiêu. Cú cắn được giải quyết cuối đêm sau khi các vai còn lượt thực hiện kỹ năng.
 
 ### Các vai khác hành động lần lượt
