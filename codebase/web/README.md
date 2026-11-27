@@ -31,6 +31,10 @@ Giao diện đọc các giá trị từ `lobby.timers`. Chủ phòng gửi `{"ty
 
 Kiểm tra bản build bằng `npm run build`.
 
+## Voice và HTTPS dev
+
+Voice dành cho phòng toàn người. Xem [hướng dẫn voice](../../docs/voice.md) để thử trên localhost, bật HTTPS/WSS khi chơi cùng Wi-Fi, cấu hình TURN và xử lý lỗi mic/âm thanh. Vite tự bật HTTPS khi có đủ `certs/dev.crt` và `certs/dev.key` ở gốc repo; thiếu một trong hai thì chạy HTTP.
+
 ## Hình và phong cách
 
 Khung và nút dùng ảnh của [RPGUI](https://github.com/RonenNess/RPGUI) (Ronen Ness, giấy phép zlib, xem `src/assets/rpgui/`). Font pixel VT323 (có dấu tiếng Việt) cài qua `@fontsource/vt323`. Kiểu nằm trong `src/theme-rpg.css`; sân làng vẽ ở `src/stage.js`, hình nhân vật hiện là ô màu tạm.
