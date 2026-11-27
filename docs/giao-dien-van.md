@@ -92,9 +92,9 @@ Dũng dùng cùng một bảng ánh xạ tên, biểu tượng và công dụng 
 | Mã server | Tên hiển thị | Mô tả |
 |---|---|---|
 | `sword` | **Gươm Excalibur** | Phiếu của bạn tính gấp đôi trong ngày hôm nay. |
-| `shield` | **Khiên Pridwen** | Bảo vệ bạn nếu bạn là người duy nhất có nhiều phiếu nhất hôm nay. |
+| `shield` | **Khiên Pridwen** | Cứu bạn nếu bị vote loại hôm nay. Nếu còn khiên sau lượt vote, nó chặn cú cắn và bình độc trong đêm kế tiếp. |
 
-Trước khi khóa phiếu, chỉ chủ vật phẩm thấy tên cổ vật mình đang giữ. Sau khi nhận `view.lucky_vote_result`, dùng `double_voters` để hiện Gươm Excalibur đã nhân đôi phiếu và `shielded` để hiện Khiên Pridwen đã cứu người bị vote loại. Quy tắc hết hiệu lực theo ngày vẫn nằm ở server.
+Trước khi khóa phiếu, chỉ chủ vật phẩm thấy tên cổ vật mình đang giữ. Sau khi nhận `view.lucky_vote_result`, dùng `double_voters` để hiện Gươm Excalibur đã nhân đôi phiếu và `shielded` để hiện Khiên Pridwen đã cứu người bị vote loại. Khiên còn hiệu lực qua đêm có `view.night_shield: true` trong trạng thái riêng của chủ khiên, kể cả khi `held_item` đã được dọn. Dùng trường này để hiện khiên còn bảo vệ người chơi. Server bỏ trường này ở `day_arrival`.
 
 #### Đũa Morgana trong bản thử
 

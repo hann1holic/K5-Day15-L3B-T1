@@ -241,6 +241,7 @@ class Room:
         reveal = self.engine.reveal()
         if self.dawn is not None:
             view = dict(self.dawn.previous_views[member.player_id])
+            view.pop("night_shield", None)
             view.update(
                 phase="day_arrival", allowed_actions=[], last_deaths=[], eliminated=None,
                 winner=None, arrivals=self.dawn.arrivals[:],
