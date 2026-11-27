@@ -1,0 +1,87 @@
+{
+  "_note": "Tên hiển thị và hướng dẫn của từng vai, theo docs/luat-choi.md. Giao diện (codebase/web) dùng để hiển thị; codebase/agent.py dùng để dựng prompt cho bot. Khoá vai và khoá pha trùng với codebase/game_engine.py.",
+  "factions": {
+    "dan": {
+      "name": "Phe Dân",
+      "win": "Thắng khi còn ít nhất một Dân và cả Sói lẫn Tình Nhân đã bị loại."
+    },
+    "soi": {
+      "name": "Phe Sói",
+      "win": "Thắng khi số Sói còn sống bằng hoặc nhiều hơn tổng số Dân và Tình Nhân còn sống."
+    },
+    "tinh_nhan": {
+      "name": "Phe Tình Nhân",
+      "win": "Thắng khi cả hai người yêu còn sống và số Tình Nhân bằng hoặc nhiều hơn tổng số Sói và Dân còn sống."
+    }
+  },
+  "roles": {
+    "dan": {
+      "name": "Dân làng",
+      "faction": "dan",
+      "description": "Không có kỹ năng đêm. Ban ngày nghe, hỏi và vote để tìm ra Sói.",
+      "phase_hints": {}
+    },
+    "soi_thuong": {
+      "name": "Sói thường",
+      "faction": "soi",
+      "description": "Biết đồng đội Sói. Mỗi đêm cùng đàn vote cắn một người ngoài phe Sói.",
+      "phase_hints": {
+        "night_wolf": "Chọn một người để cắn. Đàn vote trùng nhau thì chắc chắn hơn, hoà phiếu thì bộ máy bốc ngẫu nhiên."
+      }
+    },
+    "soi_con": {
+      "name": "Sói con",
+      "faction": "soi",
+      "description": "Như Sói thường. Khi Sói con chết, đêm kế tiếp đàn Sói được cắn hai người.",
+      "phase_hints": {
+        "night_wolf": "Chọn một người để cắn cùng đàn."
+      }
+    },
+    "tien_tri": {
+      "name": "Tiên tri",
+      "faction": "dan",
+      "description": "Mỗi đêm soi một người để biết người đó có phải Sói không. Kết quả chỉ mình bạn thấy.",
+      "phase_hints": {
+        "night_inspect": "Chọn một người để soi. Nên soi người chưa soi và người đang bị nghi."
+      }
+    },
+    "tien_tri_tap_su": {
+      "name": "Tiên tri tập sự",
+      "faction": "dan",
+      "description": "Chưa có kỹ năng. Khi Tiên tri chết, bạn lên làm Tiên tri và soi được từ đêm sau.",
+      "phase_hints": {}
+    },
+    "bao_ve": {
+      "name": "Bảo vệ",
+      "faction": "dan",
+      "description": "Mỗi đêm chọn một người còn sống. Nếu Sói cắn người đó trong đêm, cú cắn bị chặn.",
+      "phase_hints": {
+        "night_protect": "Chọn một người để bảo vệ đêm nay. Bảo vệ không chặn được bình độc."
+      }
+    },
+    "phu_thuy": {
+      "name": "Phù thủy",
+      "faction": "dan",
+      "description": "Có một bình cứu và một bình độc cho cả ván. Bình cứu cứu người vừa bị cắn, bình độc giết một người và xuyên qua Bảo vệ.",
+      "phase_hints": {
+        "night_witch": "Có thể cứu người vừa bị cắn hoặc đầu độc một người. Mỗi bình chỉ dùng được một lần trong ván."
+      }
+    },
+    "tho_san": {
+      "name": "Thợ săn",
+      "faction": "dan",
+      "description": "Mỗi đêm ghim một người khác mình. Khi bạn chết, người đang bị ghim chết theo.",
+      "phase_hints": {
+        "night_hunter": "Chọn người để ghim. Bỏ qua thì giữ dấu ghim cũ."
+      }
+    },
+    "than_tinh_yeu": {
+      "name": "Thần Tình Yêu",
+      "faction": "dan",
+      "description": "Đầu ván ghép hai người thành cặp Tình Nhân. Hai người biết vai nhau, một người chết thì người kia chết theo.",
+      "phase_hints": {
+        "pair": "Chọn hai người khác nhau để ghép đôi."
+      }
+    }
+  }
+}
