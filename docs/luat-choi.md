@@ -1,6 +1,6 @@
 # Luật Ma Sói
 
-Luồng này áp dụng cho bản chơi web. Phòng có **4–20 ghế**. Mỗi người có **vai gốc** để dùng kỹ năng và **phe hiện tại** để tính thắng. Sói thường và Dân có thể xuất hiện nhiều lần, còn mỗi vai đặc biệt có tối đa một người.
+Luồng này áp dụng cho bản chơi web. Phòng có **4–20 ghế**. Bản terminal CP2 (`python run.py`) vẫn dùng [ván mẫu sáu người](../data/cp2_sample_game.json) với một người thật và năm NPC mock. Bộ máy luật nhận ván từ 3 đến 20 người. Mỗi người có **vai gốc** để dùng kỹ năng và **phe hiện tại** để tính thắng. Sói thường và Dân có thể xuất hiện nhiều lần, còn mỗi vai đặc biệt có tối đa một người.
 
 ## 1. Vào phòng và chia vai
 

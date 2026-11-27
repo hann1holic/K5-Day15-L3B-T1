@@ -72,6 +72,7 @@ class Room:
         self.accepting = False
         self.acted = set()
         self.bot_tasks = []
+        self.bot_workers = set()
         self.turn_end = 0
         self.idle_task = None
 
@@ -82,6 +83,8 @@ class Room:
             raise RoomError("room_full", "Phòng đã đủ chỗ.")
         if not isinstance(name, str) or not 1 <= len(name.strip()) <= 20:
             raise RoomError("bad_message", "Tên hiển thị cần từ 1 đến 20 ký tự.")
+        if any(m.name.casefold() == name.strip().casefold() for m in self.members.values()):
+            raise RoomError("name_taken", "Tên này đã có người dùng trong phòng.")
         member = Member(name.strip(), secrets.token_urlsafe(24), connection)
         self.members[member.token] = member
         if self.host is None:

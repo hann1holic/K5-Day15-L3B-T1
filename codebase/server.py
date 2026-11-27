@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 from contextlib import suppress
+from functools import partial
 import json
 import logging
 from pathlib import Path
@@ -57,14 +58,15 @@ def bot_action(view):
     return response["action"]
 
 
-def fallback(options):
+def fallback(options, rng):
+    # Pick at random so timed-out bots do not all pile onto the lowest player ID.
     for option in options:
         kind = option["type"]
         targets = option.get("target_ids", [])
         if kind == "pair" and len(targets) >= 2:
-            return {"type": kind, "target_ids": targets[:2]}
+            return {"type": kind, "target_ids": rng.sample(targets, 2)}
         if kind == "vote" and targets:
-            return {"type": kind, "target_id": targets[0]}
+            return {"type": kind, "target_id": rng.choice(targets)}
     return None
 
 
@@ -78,7 +80,6 @@ class GameServer:
         })
         self.choose_bot = choose_bot
         self._games = set()
-        self._bot_workers = set()
 
     async def close(self):
         games = tuple(self._games)
@@ -209,7 +210,9 @@ class GameServer:
             result = {"accepted": False, "reason": "invalid_action"}
         elif not room.accepting or engine is None or message.get("phase_id", room.phase_id) != room.phase_id:
             result = {"accepted": False, "reason": "action_not_allowed"}
-        elif engine.phase.startswith("night_") and not engine.allowed_actions(member.player_id):
+        elif ((engine.phase.startswith("night_") or engine.phase == "pair")
+                and not engine.allowed_actions(member.player_id)):
+            # Answer before the engine so its reply cannot name a hidden private turn.
             result = {"accepted": False, "reason": "action_not_allowed"}
         elif action.get("type") in ("chat", "whisper") and (
                 not isinstance(action.get("text"), str) or len(action["text"]) > MAX_CHAT_LENGTH):
@@ -218,7 +221,9 @@ class GameServer:
             result = engine.submit_action(member.player_id, action)
         await send(member.connection, {"type": "action_result", **result})
         if result["accepted"]:
-            if engine.phase != "night_witch" or not engine.allowed_actions(member.player_id):
+            # Chat never uses up a turn, and the witch may still have a second potion.
+            if action["type"] not in ("chat", "whisper") and (
+                    engine.phase != "night_witch" or not engine.allowed_actions(member.player_id)):
                 room.acted.add(member.player_id)
             self._check_ready(room)
             await self._broadcast_action(room, member.player_id)
@@ -309,7 +314,7 @@ class GameServer:
                     # Bots whose model call ran out of time still take a legal default.
                     pending = room.names if engine.phase == "pair" else sorted(room.bots - room.acted)
                     for pid in pending:
-                        action = fallback(engine.allowed_actions(pid))
+                        action = fallback(engine.allowed_actions(pid), room.rng)
                         if action is not None:
                             engine.submit_action(pid, action)
                     dawn_views = room.capture_dawn_views() if phase == "night_hunter" else None
@@ -364,18 +369,20 @@ class GameServer:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    def _worker_done(self, task):
-        self._bot_workers.discard(task)
+    @staticmethod
+    def _worker_done(workers, task):
+        workers.discard(task)
         if not task.cancelled():
             task.exception()
 
-    async def _choose(self, view, timeout):
-        # Keep slow provider requests off the event loop and bound pending calls.
-        if timeout <= 0 or len(self._bot_workers) >= 20:
+    async def _choose(self, room, view, timeout):
+        # Keep slow provider requests off the event loop. The cap is per room, so
+        # one room with a hung provider cannot starve the bots of every other room.
+        if timeout <= 0 or len(room.bot_workers) >= room.seats:
             return None
         task = asyncio.create_task(asyncio.to_thread(self.choose_bot, view))
-        self._bot_workers.add(task)
-        task.add_done_callback(self._worker_done)
+        room.bot_workers.add(task)
+        task.add_done_callback(partial(self._worker_done, room.bot_workers))
         try:
             return await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
         except Exception:
@@ -390,7 +397,7 @@ class GameServer:
                 if not room.accepting or room.phase_id != phase_id:
                     return
                 view = room.engine.view(player_id)
-            action = await self._choose(view, end - asyncio.get_running_loop().time())
+            action = await self._choose(room, view, end - asyncio.get_running_loop().time())
             async with room.lock:
                 if not room.accepting or room.phase_id != phase_id:
                     return
@@ -405,7 +412,7 @@ class GameServer:
         async with room.lock:
             if not room.accepting or room.phase_id != phase_id:
                 return
-            action = fallback(room.engine.allowed_actions(player_id))
+            action = fallback(room.engine.allowed_actions(player_id), room.rng)
             if action is not None:
                 room.engine.submit_action(player_id, action)
             room.acted.add(player_id)
