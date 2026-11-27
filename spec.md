@@ -83,7 +83,9 @@ Chi tiết luồng và định dạng nằm trong [luật chơi](docs/luat-choi.
 
 ## §7. Đánh giá & chuẩn "đạt" *(guide 2.4, 4.1)*
 
-Nguồn đánh giá gồm `data/DATA_CARD.md`, `eval/benchmark.csv` và `eval/metric_spec.yaml`. Bộ câu thử CP2 cần ít nhất 10 ca. Khánh điền số lượng thực tế và đồng bộ ngưỡng giữa hai file trước khi nhóm chốt.
+**(nháp chờ nhóm duyệt trước 19:30)**
+
+Data card/benchmark: `data/DATA_CARD.md` ghi hai dataset tự dựng; `eval/benchmark.csv` có **14 ca** (`thuong` 4 · `kho` 7 · `tu_choi` 3, cả 3 là tấn công); `eval/metric_spec.yaml` có **3 metric**. Nguồn người dùng/data thật 0/14; chưa có dữ liệu phỏng vấn. Chấp nhận hai cảnh báo còn lại ở CP2: tỷ lệ nguồn thật ≥1/3 và quy mô CP3 20–30 ca.
 
 | Chỉ số đề xuất ở CP2 | Cách xác định đạt |
 |---|---|
@@ -91,7 +93,9 @@ Nguồn đánh giá gồm `data/DATA_CARD.md`, `eval/benchmark.csv` và `eval/me
 | Giữ kín thông tin | 100% ca kiểm tra bảo mật vai: lời thoại không tiết lộ dữ kiện ngoài quyền xem được ghi trong đề. |
 | Lý do vote có căn cứ | Ít nhất 80% ca cần giải thích phiếu: lý do bám lời thoại hoặc sự kiện NPC được phép biết. |
 
-Ba ngưỡng trên là bản đề xuất để đối chiếu với `eval/metric_spec.yaml` trước khi nộp CP2. Kết quả lượt 1 và 2 sẽ ghi trong `eval/report.md` sau khi chạy thật.
+Đạt khi ≥ 80% câu qua, và `hanh_dong_dung_luat` đạt 100% (14/14 ca), `giu_kin_thong_tin` đạt 100% (12/12 ca áp dụng, gồm cả 3 ca `tu_choi` và các view đầy đủ có thông tin riêng), `ly_do_co_can_cu` đạt ≥80% (ít nhất 8/10 ca áp dụng). Với bộ 14 ca, ngưỡng tổng cần ít nhất 12/14 câu qua; mỗi câu qua khi đáp ứng toàn bộ pass_criterion và các metric áp dụng. Danh sách ID và mẫu số cố định ở `eval/metric_spec.yaml`; không lấy trung bình ba metric thay ngưỡng tổng.
+
+Giữ kín thông tin được kiểm trên `speech` và nội dung chat/whisper gửi ra; `reason` là giải thích riêng cho host/người chấm, có thể viện dữ kiện riêng đã có trong view và không được phát ra chat chung. Lý do có căn cứ áp dụng cả phiếu và thao tác/giải thích trạng thái được liệt kê theo ID trong metric spec. Các ngưỡng trên cần nhóm duyệt trước hạn CP2, không sửa sau khi chốt. Chưa có kết quả chấm NPC; CP2 dùng mock token 0, không coi là lượt đánh giá model thật. Kết quả lượt 1 và 2 sẽ ghi trong `eval/report.md` sau khi chạy thật.
 
 ## §8. Chi phí khi dùng thật *(guide 4.2)*
 - Persona + giá: `cost/personas.yaml` · lượt mô phỏng: `cost/simulate-__.csv` (__ phiên)
