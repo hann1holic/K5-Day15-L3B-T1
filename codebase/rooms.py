@@ -141,6 +141,7 @@ class Room:
         return {
             "type": "state", "code": self.code, "me": member.player_id,
             "names": self.names.copy(), "deadline": deadline, "phase_id": phase_id,
+            "is_host": member is self.host,
             "acted": member.player_id in acted, "view": view,
             "reveal": self.engine.reveal(),
         }

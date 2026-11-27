@@ -81,7 +81,7 @@ Giao diện kết nối tới `ws://127.0.0.1:8000/ws`. Khi thử trên nhiều 
 
 Chủ phòng chọn 4–20 ghế. Chỗ trống được NPC ngồi thay. Người mất kết nối có thể vào lại bằng mã phòng và token đã nhận. Server mặc định dùng NPC mock khi `MODEL_PROVIDER=fake`. Có thể thử nhanh với `--discussion-seconds 10 --vote-seconds 5 --night-seconds 5`.
 
-Mỗi tin `state` có `phase_id`. Giao diện có thể gửi lại trường này trong tin `action` để từ chối thao tác đến trễ, kể cả giữa hai lượt Sói cùng tên pha. Bản terminal vẫn chạy bằng `python run.py`.
+Mỗi tin `state` có `is_host` để giao diện cập nhật nút Chơi lại nếu chủ phòng rời ván, cùng `phase_id` để nhận diện lượt hiện tại. Giao diện có thể gửi lại trường này trong tin `action` để từ chối thao tác đến trễ, kể cả giữa hai lượt Sói cùng tên pha. Bản terminal vẫn chạy bằng `python run.py`.
 
 ## Bản chạy thử — viết ở đâu
 
