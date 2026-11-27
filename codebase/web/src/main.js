@@ -604,7 +604,8 @@ function renderResult() {
 
 function resetRoom({ keepRecent = false } = {}) {
   storeSession(null, { keepRecent });
-  match = room = lobby = null;
+  // Mỗi phòng đếm phase_id riêng, nên quên mốc báo chết của phòng cũ.
+  match = room = lobby = deathNoticeFor = null;
   awaitingAction = rejoining = false;
   chatChannel = "public";
   actionSignature = chatSignature = timerSignature = pendingActionText = "";
