@@ -37,7 +37,7 @@ Cuối đêm, server xử lý cú cắn sau Bảo vệ và bình cứu, áp dụ
 1. **Báo riêng cho người bị loại.** Mỗi người chết trong đêm nhận tín hiệu riêng để chuyển sang trạng thái theo dõi. Nhát chém ngang màn hình chỉ dành cho chính người bị loại.
 2. **Tập trung ở phòng khách.** Những người còn sống lần lượt xuất hiện ở phòng khách. Người chơi tự đối chiếu ai có mặt và ai vắng để suy ra người đã chết. Trong pha tập trung, server chỉ công bố người vừa xuất hiện. Danh sách người chết và trạng thái sống/chết của toàn bàn được giữ kín trong pha này.
 3. **Thảo luận.** Khi mọi người còn sống đã xuất hiện, mở thời gian bàn bạc. Người còn sống có thể trao đổi chung hoặc nhắn riêng.
-4. **Bỏ phiếu loại.** Hết giờ thảo luận, mỗi người còn sống bỏ một phiếu cho một người còn sống khác. Có thể đổi phiếu trước khi khóa. Người nhiều phiếu nhất bị treo cổ. Hòa ở vị trí cao nhất hoặc cả bàn bỏ lượt thì ngày đó không ai bị loại.
+4. **Bỏ phiếu loại.** Hết giờ thảo luận, mỗi người còn sống bỏ một phiếu cho một người còn sống khác. Có thể đổi phiếu trước khi khóa. Phiếu khóa khi hết giờ, hoặc ngay khi mọi người còn sống đã bỏ phiếu. Người nhiều phiếu nhất bị treo cổ. Hòa ở vị trí cao nhất hoặc cả bàn bỏ lượt thì ngày đó không ai bị loại.
 5. **Chuyển vòng.** Sau khi xử lý việc loại người và tất cả hiệu ứng chết theo, server xét thắng. Nếu ván chưa kết thúc, đêm tiếp theo bắt đầu.
 
 ## 4. Chết dây chuyền và điều kiện thắng

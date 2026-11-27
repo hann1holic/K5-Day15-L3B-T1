@@ -69,9 +69,11 @@ class Room:
         self.night_phase_id = None
         self.prepare_deadline = None
         self.dawn = None
-        self.failed = False
         self.accepting = False
         self.acted = set()
+        self.bot_tasks = []
+        self.turn_end = 0
+        self.idle_task = None
 
     def join(self, name, connection):
         if self.engine is not None:
@@ -89,8 +91,6 @@ class Room:
     def rejoin(self, token, connection):
         if not isinstance(token, str) or token not in self.members:
             raise RoomError("bad_token", "Mã vào lại không hợp lệ.")
-        if self.failed:
-            raise RoomError("game_error", "Ván này đã dừng vì lỗi máy chủ.")
         member = self.members[token]
         previous = member.connection
         member.connection = connection
@@ -104,6 +104,24 @@ class Room:
     def leave(self, member):
         self.members.pop(member.token, None)
         self.disconnect(member)
+        # An NPC takes over the seat so its role keeps acting for the rest of the match.
+        if self.engine is not None and member.player_id is not None:
+            self.bots.add(member.player_id)
+
+    def has_connection(self):
+        return any(m.connection is not None for m in self.members.values())
+
+    def back_to_lobby(self):
+        """Drop a broken match so the host can start a fresh one."""
+        self.engine = None
+        self.accepting = False
+        self.deadline = self.night_deadline = self.night_phase_id = self.prepare_deadline = None
+        self.dawn = None
+        self.acted.clear()
+        self.names = {}
+        self.bots = set()
+        for member in self.members.values():
+            member.player_id = None
 
     def _elect_host(self):
         if self.host is None or self.host.connection is None:
@@ -158,7 +176,6 @@ class Room:
         self.engine = GameEngine(players, rng=self.rng, fixed_night=True)
         self.night_phase_id = self.night_deadline = self.prepare_deadline = None
         self.dawn = None
-        self.failed = False
 
     def joined_message(self, member):
         return {"type": "joined", "code": self.code, "token": member.token,
@@ -246,6 +263,13 @@ class Rooms:
             raise RoomError("room_not_found", "Không tìm thấy phòng.")
         return room
 
+    def is_open(self, room):
+        return self._rooms.get(room.code) is room
+
+    def discard(self, room):
+        if self.is_open(room):
+            del self._rooms[room.code]
+
     def discard_empty(self, room):
         if not room.members:
-            self._rooms.pop(room.code, None)
+            self.discard(room)

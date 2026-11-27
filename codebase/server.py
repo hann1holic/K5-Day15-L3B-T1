@@ -5,7 +5,6 @@ import asyncio
 from contextlib import suppress
 import json
 import logging
-from math import isfinite
 from pathlib import Path
 from random import Random
 import sys
@@ -29,13 +28,28 @@ MAX_CHAT_LENGTH = 200
 BOT_TIMEOUT = 5
 PREPARE_SECONDS = 5
 DAWN_STEP_SECONDS = 0.7
+BOT_MARGIN_SECONDS = 0.3
+SEND_TIMEOUT = 5
+ROOM_IDLE_SECONDS = 300
+MAX_PHASE_SECONDS = 600
 
 
 async def send(connection, message):
     try:
-        await connection.send(json.dumps(message, ensure_ascii=False))
+        await asyncio.wait_for(connection.send(json.dumps(message, ensure_ascii=False)), SEND_TIMEOUT)
     except ConnectionClosed:
         pass
+    except asyncio.TimeoutError:
+        # A client that stops reading must not hold the room lock for everyone else.
+        LOGGER.warning("Dropping a WebSocket client that stopped reading.")
+        connection.transport.abort()
+
+
+def clip_text(action):
+    if (isinstance(action, dict) and action.get("type") in ("chat", "whisper")
+            and isinstance(action.get("text"), str)):
+        return {**action, "text": action["text"][:MAX_CHAT_LENGTH]}
+    return action
 
 
 def bot_action(view):
@@ -107,6 +121,23 @@ class GameServer:
                         room.disconnect(member)
                         if room.engine is None or room.host is not previous_host:
                             await self._broadcast(room)
+                        if not room.has_connection():
+                            self._schedule_idle(room)
+
+    def _schedule_idle(self, room):
+        if room.idle_task is not None:
+            room.idle_task.cancel()
+        room.idle_task = asyncio.create_task(self._expire_idle(room))
+
+    async def _expire_idle(self, room):
+        # Keep the room long enough for players to reconnect, then free it.
+        await asyncio.sleep(ROOM_IDLE_SECONDS)
+        async with room.lock:
+            if room.has_connection():
+                return
+            if room.runner is not None:
+                room.runner.cancel()
+            self.rooms.discard(room)
 
     async def _enter(self, connection, message):
         kind = message["type"]
@@ -118,6 +149,8 @@ class GameServer:
         else:
             raise RoomError("bad_message", "Cần tạo phòng, vào phòng hoặc vào lại trước.")
         async with room.lock:
+            if not self.rooms.is_open(room):
+                raise RoomError("room_not_found", "Không tìm thấy phòng.")
             if kind == "join_room":
                 member = room.join(message.get("name"), connection)
             if kind == "rejoin":
@@ -137,7 +170,13 @@ class GameServer:
         if kind == "leave":
             room.leave(member)
             if room.members:
+                pid = member.player_id
+                if (room.accepting and pid is not None and pid not in room.acted
+                        and room.engine.allowed_actions(pid)):
+                    room.bot_tasks.append(asyncio.create_task(self._bot_turn(room, room.phase_id, pid)))
                 await self._broadcast(room)
+                if not room.has_connection():
+                    self._schedule_idle(room)
             else:
                 if room.runner is not None:
                     room.runner.cancel()
@@ -218,7 +257,6 @@ class GameServer:
 
     async def _play(self, room):
         engine = room.engine
-        bot_tasks = []
         night_end = None
         try:
             while engine.phase != "finished":
@@ -232,31 +270,33 @@ class GameServer:
                     phase = engine.phase
                     night = phase.startswith("night_")
                     private_turn = night or phase == "pair"
-                    start = night_end if night and night_end is not None else now
+                    start = night_end if private_turn and night_end is not None else now
                     opens = start + PREPARE_SECONDS if private_turn else start
                     end = opens + seconds
                     wall_time = time.time()
-                    if night:
+                    if private_turn:
+                        # Cupid's pair turn counts as the first slot of night one, so
+                        # waiting players keep a single countdown until dawn.
                         if night_end is None:
                             room.night_phase_id = phase_id
-                            total = (seconds + PREPARE_SECONDS) * FIXED_NIGHT_SLOTS
+                            slots = FIXED_NIGHT_SLOTS + (phase == "pair")
+                            total = (seconds + PREPARE_SECONDS) * slots
                             room.night_deadline = int((wall_time + total) * 1000)
                         night_end = end
                     else:
                         night_end = None
-                        room.night_phase_id = phase_id if private_turn else None
-                        room.night_deadline = int((wall_time + end - now) * 1000) if private_turn else None
+                        room.night_phase_id = room.night_deadline = None
                     room.deadline = int((wall_time + max(0, end - now)) * 1000)
                     if private_turn:
                         room.prepare_deadline = int((wall_time + max(0, opens - now)) * 1000)
                         room.accepting = False
                     else:
-                        bot_tasks = self._open_turn(room, phase_id)
+                        self._open_turn(room, phase_id, end)
                     await self._broadcast(room)
                 if private_turn:
                     await asyncio.sleep(max(0, opens - asyncio.get_running_loop().time()))
                     async with room.lock:
-                        bot_tasks = self._open_turn(room, phase_id)
+                        self._open_turn(room, phase_id, end)
                         recipients = {pid for pid in room.names if engine.allowed_actions(pid)}
                         await self._broadcast(room, recipients)
                     await asyncio.sleep(max(0, end - asyncio.get_running_loop().time()))
@@ -266,17 +306,17 @@ class GameServer:
                         await asyncio.wait_for(room.ready.wait(), timeout=remaining)
                 async with room.lock:
                     room.accepting = False
-                    if engine.phase == "pair":
-                        for pid in room.names:
-                            action = fallback(engine.allowed_actions(pid))
-                            if action is not None:
-                                engine.submit_action(pid, action)
+                    # Bots whose model call ran out of time still take a legal default.
+                    pending = room.names if engine.phase == "pair" else sorted(room.bots - room.acted)
+                    for pid in pending:
+                        action = fallback(engine.allowed_actions(pid))
+                        if action is not None:
+                            engine.submit_action(pid, action)
                     dawn_views = room.capture_dawn_views() if phase == "night_hunter" else None
                     engine.advance()
                     if dawn_views is not None:
                         room.begin_dawn(dawn_views)
-                await self._cancel_bots(bot_tasks)
-                bot_tasks.clear()
+                await self._cancel_bots(room)
                 if dawn_views is not None:
                     await self._play_dawn(room)
             async with room.lock:
@@ -287,19 +327,21 @@ class GameServer:
         except Exception:
             LOGGER.exception("Game loop failed for room %s", room.code)
             async with room.lock:
-                room.accepting = False
-                room.failed = True
+                room.back_to_lobby()
                 await asyncio.gather(*(send(member.connection, {
-                    "type": "error", "code": "game_error", "message": "Không thể tiếp tục ván."
+                    "type": "error", "code": "game_error",
+                    "message": "Không thể tiếp tục ván. Phòng đã về phòng chờ.",
                 }) for member in room.members.values() if member.connection is not None))
+                await self._broadcast(room)
         finally:
-            await self._cancel_bots(bot_tasks)
+            await self._cancel_bots(room)
 
-    def _open_turn(self, room, phase_id):
+    def _open_turn(self, room, phase_id, end):
         room.prepare_deadline = None
         room.accepting = True
+        room.turn_end = end
         self._check_ready(room)
-        return [
+        room.bot_tasks = [
             asyncio.create_task(self._bot_turn(room, phase_id, pid))
             for pid in sorted(room.bots) if room.engine.allowed_actions(pid)
         ]
@@ -316,7 +358,8 @@ class GameServer:
         async with room.lock:
             room.dawn = None
 
-    async def _cancel_bots(self, tasks):
+    async def _cancel_bots(self, room):
+        tasks, room.bot_tasks = room.bot_tasks, []
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
@@ -339,7 +382,9 @@ class GameServer:
             return None
 
     async def _bot_turn(self, room, phase_id, player_id):
-        end = asyncio.get_running_loop().time() + BOT_TIMEOUT
+        # Leave time for the fallback before the phase closes, even with short timers.
+        now = asyncio.get_running_loop().time()
+        end = min(now + BOT_TIMEOUT, room.turn_end - BOT_MARGIN_SECONDS)
         for _ in range(2):
             async with room.lock:
                 if not room.accepting or room.phase_id != phase_id:
@@ -351,6 +396,7 @@ class GameServer:
                     return
                 if action is None:
                     break
+                action = clip_text(action)
                 if room.engine.submit_action(player_id, action)["accepted"]:
                     room.acted.add(player_id)
                     self._check_ready(room)
@@ -383,13 +429,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--discussion-seconds", type=float, default=90)
-    parser.add_argument("--vote-seconds", type=float, default=30)
-    parser.add_argument("--night-seconds", type=float, default=20)
+    # Same integer range the lobby accepts in set_timers.
+    parser.add_argument("--discussion-seconds", type=int, default=90)
+    parser.add_argument("--vote-seconds", type=int, default=30)
+    parser.add_argument("--night-seconds", type=int, default=20)
     args = parser.parse_args()
     durations = (args.discussion_seconds, args.vote_seconds, args.night_seconds)
-    if any(not isfinite(value) or value <= 0 for value in durations):
-        parser.error("Phase durations must be positive.")
+    if any(not 1 <= value <= MAX_PHASE_SECONDS for value in durations):
+        parser.error(f"Phase durations must be whole seconds from 1 to {MAX_PHASE_SECONDS}.")
     try:
         asyncio.run(run(args))
     except KeyboardInterrupt:
