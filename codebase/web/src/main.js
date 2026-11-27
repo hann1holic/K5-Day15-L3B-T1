@@ -17,9 +17,18 @@ const roles = {
   than_tinh_yeu: ["Thần Tình Yêu", "Ghép hai người thành phe Tình Nhân."],
 };
 const factions = { dan: "Dân", soi: "Sói", tinh_nhan: "Tình Nhân" };
-const actionLabels = {
-  vote: "Bỏ phiếu", pair: "Ghép đôi", protect: "Bảo vệ", inspect: "Soi",
-  save: "Dùng bình cứu", poison: "Dùng bình độc", mark: "Ghim",
+const actionCopy = {
+  pair: ["Ghép hai người", "Hai người được chọn biết vai của nhau và chuyển sang phe Tình Nhân."],
+  protect: ["Bảo vệ người này", "Chặn cú cắn của Sói lên mục tiêu trong đêm nay. Bình độc vẫn có tác dụng."],
+  inspect: ["Soi người này", "Kết quả soi chỉ hiện cho bạn sau khi chốt lượt."],
+  save: ["Dùng bình cứu", "Cứu một người sắp bị loại vì cú cắn. Mỗi ván có một bình cứu."],
+  poison: ["Dùng bình độc", "Loại mục tiêu khi chốt đêm, kể cả khi họ đang được Bảo vệ."],
+  mark: ["Ghim mục tiêu", "Người bị ghim chỉ bị loại theo nếu Thợ săn chết."],
+};
+const timerFields = {
+  discussion_seconds: "discussion-seconds",
+  vote_seconds: "vote-seconds",
+  night_seconds: "night-seconds",
 };
 const rejections = {
   action_not_allowed: "Lượt này đã đổi hoặc thao tác chưa được phép.",
@@ -38,6 +47,9 @@ let chatChannel = "public";
 let actionSignature = "";
 let chatSignature = "";
 let awaitingAction = false;
+let pendingActionText = "";
+let timerSignature = "";
+let savingTimers = false;
 let session = loadSession(sessionStorage);
 let rejoining = false;
 
@@ -107,7 +119,10 @@ function connection(status) {
   }[status];
   for (const button of document.querySelectorAll("[data-connection]")) button.disabled = status !== "online";
   if (display === "game" && match) renderActionsAndChat();
-  if (lobby && display === "lobby") $("lobby-seats").disabled = status !== "online";
+  if (lobby && display === "lobby") {
+    $("lobby-seats").disabled = status !== "online";
+    updateTimerControls();
+  }
 }
 
 function online() {
@@ -149,6 +164,7 @@ function connect() {
   ws.addEventListener("close", () => {
     if (ws !== socket) return;
     awaitingAction = false;
+    savingTimers = false;
     connection("offline");
     retry = setTimeout(connect, 1500);
   });
@@ -172,11 +188,13 @@ function receive(message) {
     case "state": {
       const phaseChanged = match?.phase_id !== message.phase_id;
       if (phaseChanged) awaitingAction = false;
+      if (match?.view.round !== message.view.round || match?.view.phase === "finished") {
+        $("action-status").textContent = "";
+      }
       match = message;
       if (message.view.phase === "finished") {
         renderResult();
       } else {
-        if (phaseChanged) $("action-status").textContent = "";
         renderGame();
       }
       break;
@@ -184,11 +202,15 @@ function receive(message) {
     case "action_result":
       awaitingAction = false;
       $("action-status").textContent = message.accepted
-        ? "Máy chủ đã ghi nhận thao tác."
+        ? pendingActionText || "Máy chủ đã ghi nhận thao tác."
         : rejections[message.reason] || "Máy chủ chưa ghi nhận thao tác.";
       renderActionsAndChat();
       break;
     case "error":
+      if (savingTimers) {
+        savingTimers = false;
+        updateTimerControls();
+      }
       if (rejoining && ["bad_token", "room_not_found"].includes(message.code)) {
         resetRoom();
       }
@@ -222,6 +244,40 @@ function addSeatOptions(select) {
   }
 }
 
+function timerValues() {
+  return Object.fromEntries(Object.entries(timerFields).map(([key, id]) => [key, $(id).valueAsNumber]));
+}
+
+function renderTimers() {
+  const saved = lobby?.timers;
+  const form = $("timer-settings");
+  const summary = $("timer-summary");
+  form.hidden = !saved || !lobby.can_start;
+  summary.parentElement.hidden = !saved;
+  if (!saved) return;
+  const signature = JSON.stringify(saved);
+  if (signature !== timerSignature) {
+    timerSignature = signature;
+    savingTimers = false;
+    for (const [key, id] of Object.entries(timerFields)) $(id).value = saved[key];
+  }
+  summary.textContent = "Thảo luận " + saved.discussion_seconds + " giây · Bỏ phiếu " +
+    saved.vote_seconds + " giây · Mỗi lượt đêm " + saved.night_seconds + " giây";
+  updateTimerControls();
+}
+
+function updateTimerControls() {
+  if (!lobby?.timers || !lobby.can_start) return;
+  const current = timerValues();
+  const dirty = Object.keys(timerFields).some((key) => current[key] !== lobby.timers[key]);
+  const status = $("timer-status");
+  $("save-timers").disabled = !online() || savingTimers || !dirty;
+  $("start").disabled = !online() || savingTimers || dirty;
+  for (const id of Object.values(timerFields)) $(id).disabled = !online() || savingTimers;
+  status.hidden = !dirty && !savingTimers;
+  status.textContent = savingTimers ? "Đang lưu…" : "Bấm Lưu thời gian trước khi bắt đầu.";
+}
+
 function renderLobby() {
   $("room-code").textContent = lobby.code;
   $("seat-count").textContent = "(" + lobby.members.length + "/" + lobby.seats + ")";
@@ -240,6 +296,7 @@ function renderLobby() {
     ? lobby.bots_on_start + " NPC sẽ vào khi bắt đầu."
     : "Phòng đã đủ người.";
   $("start").hidden = !lobby.can_start;
+  renderTimers();
   showScreen("lobby");
 }
 
@@ -298,9 +355,10 @@ function updateClock() {
   $("timer").textContent = Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
 }
 
-function submitAction(action) {
+function submitAction(action, confirmation = "Đã gửi tin nhắn.") {
   if (!match || awaitingAction) return false;
   if (!send("action", { phase_id: match.phase_id, action })) return false;
+  pendingActionText = confirmation;
   $("action-status").textContent = "Đang gửi…";
   awaitingAction = true;
   renderActionsAndChat();
@@ -322,9 +380,31 @@ function targetSelect(targets, id) {
   return select;
 }
 
+function actionDescription(kind) {
+  if (kind !== "vote") return actionCopy[kind];
+  if (match.view.phase === "night_wolf") {
+    return ["Vote cắn", "Chọn một người để cả đàn vote cắn. Khi hòa phiếu cao nhất, server chọn ngẫu nhiên trong nhóm hòa."];
+  }
+  return ["Bỏ phiếu loại", "Chọn người bạn muốn loại khỏi ván. Hòa phiếu cao nhất thì không ai bị loại."];
+}
+
+function actionGuide(view, actions) {
+  const me = view.players.find((player) => player.player_id === match.me);
+  if (!me?.alive) return "Bạn đã bị loại. Bạn vẫn có thể theo dõi đến hết ván.";
+  if (actions.some((action) => action.type === "vote")) {
+    return view.phase === "night_wolf"
+      ? "Đến lượt phe Sói. Kết quả cú cắn sẽ được xử lý sau khi các vai khác hành động."
+      : "Đã hết giờ bàn bạc. Chọn mục tiêu và xác nhận phiếu trước khi hết giờ.";
+  }
+  if (actions.length) return "Chọn mục tiêu bên dưới rồi bấm nút kỹ năng. Mỗi kỹ năng chỉ hiện ở đúng lượt.";
+  if (view.phase === "day_discussion") return "Bàn bạc trong chat chung hoặc chat riêng. Lượt bỏ phiếu sẽ mở khi hết giờ.";
+  return "Chưa đến lượt của bạn. Sói và các vai đang thực hiện hành động riêng.";
+}
+
 function actionForm(option) {
   const form = element("form");
-  const name = actionLabels[option.type];
+  const [name, description] = actionDescription(option.type);
+  form.appendChild(element("p", description, "muted small"));
   const count = option.target_count || 1;
   const targets = [];
   for (let index = 0; index < count; index += 1) {
@@ -348,7 +428,8 @@ function actionForm(option) {
       return;
     }
     const toSend = count === 1 ? { target_id: selected[0] } : { target_ids: selected };
-    submitAction({ type: option.type, ...toSend });
+    const names = selected.map(nameOf).join(" và ");
+    submitAction({ type: option.type, ...toSend }, "Đã ghi nhận: " + name + " — " + names + ".");
   });
   return form;
 }
@@ -356,18 +437,18 @@ function actionForm(option) {
 function renderActionsAndChat() {
   if (display !== "game" || !match) return;
   const options = match.view.allowed_actions;
-  const targetActions = options.filter((action) => actionLabels[action.type] && action.target_ids?.length);
+  const targetActions = options.filter((action) =>
+    (action.type === "vote" || Object.hasOwn(actionCopy, action.type)) && action.target_ids?.length
+  );
+  $("turn-panel").dataset.active = String(Boolean(targetActions.length));
+  $("turn-title").textContent = targetActions.length === 1 ? actionDescription(targetActions[0].type)[0]
+    : targetActions.length > 1 ? "Chọn kỹ năng" : "Lượt của bạn";
+  $("phase-guide").textContent = actionGuide(match.view, targetActions);
   const signature = JSON.stringify([match.phase_id, targetActions]);
   const container = $("action-list");
   if (signature !== actionSignature) {
     actionSignature = signature;
     container.replaceChildren(...targetActions.map(actionForm));
-  }
-  if (!targetActions.length && !$("action-status").textContent) {
-    const me = match.view.players.find((player) => player.player_id === match.me);
-    $("action-status").textContent = !me?.alive ? "Bạn đã bị loại. Có thể theo dõi đến hết ván."
-      : options.some((option) => option.type === "chat") ? "Trao đổi trước khi bỏ phiếu."
-      : "Chờ lượt tiếp theo.";
   }
   for (const button of container.querySelectorAll("button")) button.disabled = !online() || awaitingAction;
   renderChat();
@@ -429,7 +510,8 @@ function resetRoom() {
   match = room = lobby = null;
   awaitingAction = rejoining = false;
   chatChannel = "public";
-  actionSignature = chatSignature = "";
+  actionSignature = chatSignature = timerSignature = pendingActionText = "";
+  savingTimers = false;
   $("notice").hidden = true;
   $("action-status").textContent = $("chat-input").value = "";
   showScreen("home");
@@ -463,6 +545,14 @@ $("resume").addEventListener("click", () => {
   rejoining = send("rejoin", saved);
 });
 $("lobby-seats").addEventListener("change", () => send("set_seats", { seats: Number($("lobby-seats").value) }));
+$("timer-settings").addEventListener("input", updateTimerControls);
+$("timer-settings").addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (send("set_timers", { timers: timerValues() })) {
+    savingTimers = true;
+    updateTimerControls();
+  }
+});
 $("start").addEventListener("click", () => send("start"));
 $("restart").addEventListener("click", () => send("restart"));
 $("copy-code").addEventListener("click", async () => {

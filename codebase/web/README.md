@@ -21,4 +21,12 @@ Mở địa chỉ Vite in ra, mặc định là http://localhost:5173. Tạo ph�
 
 Bản M1 có sảnh, phòng chờ, các pha ván, chat chữ chung và riêng, kết quả và chơi lại. Dữ liệu luật và quyền xem lấy từ server. Tải lại tab sẽ dùng token của tab đó để vào lại. Khi mở tab mới, người chơi có thể tự chọn vào lại phòng đã lưu.
 
+## Thời gian và thao tác trong ván
+
+Trong phòng chờ, chủ phòng có thể đổi thời gian thảo luận, bỏ phiếu và từng lượt đêm. Bấm **Lưu thời gian** trước khi bắt đầu. Mọi người nhìn thấy thời gian đã lưu. Mặc định là 90, 30 và 20 giây.
+
+Ban ngày, bấm **Bỏ phiếu loại** sau pha thảo luận. Ban đêm, chỉ người thuộc phe Sói thấy **Vote cắn** trong lượt săn. Khi tới lượt kỹ năng, chọn mục tiêu và bấm nút của vai. Game xử lý kết quả cú cắn sau khi các vai đêm đã hành động.
+
+Giao diện đọc các giá trị từ `lobby.timers`. Chủ phòng gửi `{"type":"set_timers","timers":{"discussion_seconds":90,"vote_seconds":30,"night_seconds":20}}`. Mỗi giá trị phải là số nguyên từ 1 đến 600 giây. Server xác thực quyền và gửi lại phòng chờ với thời gian đã lưu.
+
 Kiểm tra bản build bằng `npm run build`.

@@ -53,6 +53,19 @@
           <button id="copy-code" type="button">Sao chép mã phòng</button>
           <label id="lobby-seat-label" for="lobby-seats" hidden>Số ghế trong phòng</label>
           <select id="lobby-seats" hidden></select>
+          <div class="timing">
+            <h2>Thời gian từng lượt</h2>
+            <p id="timer-summary" class="muted small"></p>
+            <form id="timer-settings" hidden>
+              <div class="timer-fields">
+                <label>Thảo luận (giây)<input id="discussion-seconds" type="number" min="1" max="600" step="1" required></label>
+                <label>Bỏ phiếu (giây)<input id="vote-seconds" type="number" min="1" max="600" step="1" required></label>
+                <label>Mỗi lượt đêm (giây)<input id="night-seconds" type="number" min="1" max="600" step="1" required></label>
+              </div>
+              <button id="save-timers" type="submit">Lưu thời gian</button>
+              <p id="timer-status" class="small muted" role="status" hidden></p>
+            </form>
+          </div>
           <p id="bot-count" class="muted"></p>
           <button id="start" class="primary" type="button" data-connection hidden>Bắt đầu</button>
         </div>
@@ -64,6 +77,17 @@
         <div><p id="round-label" class="eyebrow"></p><h1 id="phase-label"></h1><p id="round-news"></p></div>
         <div class="heading-controls"><span id="timer" class="timer" aria-label="Thời gian còn lại"></span><button class="quiet leave" type="button">Rời phòng</button></div>
       </div>
+      <section id="turn-panel" class="panel turn-panel" aria-labelledby="turn-title">
+        <h2 id="turn-title">Lượt của bạn</h2>
+        <p id="phase-guide" class="muted"></p>
+        <div id="action-list" class="action-list"></div>
+        <p id="action-status" class="muted small" role="status"></p>
+        <details class="round-help">
+          <summary>Cách bỏ phiếu và dùng kỹ năng</summary>
+          <p><strong>Ban ngày:</strong> thảo luận rồi chọn một người để bỏ phiếu loại. Người nhiều phiếu nhất bị loại. Hòa phiếu thì không ai bị loại.</p>
+          <p><strong>Ban đêm:</strong> phe Sói vote cắn trước. Kết quả cắn chỉ được tính sau khi các vai dùng kỹ năng. Đến lượt của bạn, chọn mục tiêu và bấm nút tương ứng. Nếu chưa có nút, hãy chờ.</p>
+        </details>
+      </section>
       <div class="game-grid">
         <div class="table-board panel"><h2>Bàn chơi</h2><ul id="table-players" class="player-grid"></ul></div>
         <aside class="game-side" aria-label="Vai trò, hành động và trò chuyện">
@@ -72,11 +96,6 @@
             <h2 id="player-role"></h2>
             <p id="role-detail" class="muted"></p>
             <p id="private-info" class="muted" hidden></p>
-          </div>
-          <div class="panel">
-            <h2>Lượt của bạn</h2>
-            <p id="action-status" class="muted" aria-live="polite"></p>
-            <div id="action-list" class="action-list"></div>
           </div>
           <div class="panel chat-panel">
             <div class="tabs" aria-label="Kênh trò chuyện">

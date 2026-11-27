@@ -102,3 +102,22 @@ ul { list-style: none; margin: 0; padding: 0; }
   .screen-heading { align-items: start; flex-direction: column; }
   .heading-controls { justify-content: start; }
 }
+
+.timing { padding: .7rem 0; border-block: 1px solid var(--line); }
+.timing h2 { margin-bottom: .35rem; font-size: 1.2rem; }
+#timer-settings { display: grid; gap: .55rem; margin-top: .65rem; }
+.timer-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
+.timer-fields label { font-size: .875rem; margin: 0; }
+.timer-fields input { margin-top: .3rem; }
+.turn-panel { margin-bottom: 1rem; }
+.turn-panel[data-active=true] { border-color: #9e7847; background: #272217; }
+.turn-panel h2 { margin-bottom: .35rem; }
+.turn-panel .action-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); }
+.turn-panel form { max-width: 26rem; }
+#action-status:not(:empty) { margin-top: .55rem; }
+.round-help { margin-top: .75rem; color: var(--muted); }
+.round-help summary { cursor: pointer; width: fit-content; }
+.round-help p { margin-top: .4rem; line-height: 1.5; max-width: 67ch; }
+@media (max-width: 420px) {
+  .timer-fields { grid-template-columns: 1fr; }
+}
