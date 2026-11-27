@@ -1,5 +1,5 @@
 {
-  "_note": "Tên hiển thị và hướng dẫn của từng vai, theo docs/luat-choi.md. Giao diện (codebase/web) dùng để hiển thị; codebase/agent.py dùng để dựng prompt cho bot. Khoá vai và khoá pha trùng với codebase/game_engine.py.",
+  "_note": "Tên hiển thị và hướng dẫn của từng vai, theo docs/luat-choi.md. codebase/agent.py dùng để dựng prompt cho bot. Giao diện (codebase/web) có thể đọc file này thay cho tên vai đang viết sẵn trong main.js. Khoá vai và khoá pha trùng với codebase/game_engine.py.",
   "factions": {
     "dan": {
       "name": "Phe Dân",

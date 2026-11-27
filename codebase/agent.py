@@ -5,8 +5,9 @@ Hợp đồng:
     - speech: lời nói công khai, tiếng Việt, ≤ 150 ký tự. Ở day_discussion, action là chat cùng nội dung.
     - action: đúng một mục trong allowed_actions của view, hoặc null khi không có lượt.
     - reason: căn cứ ngắn cho host / người chấm. KHÔNG gửi xuống client.
-    bot_profile(player_id) -> {"name", "trait"}: tên tiếng Việt và tính cách của bot ngồi ghế đó.
-    Server dùng name làm tên hiển thị của ghế bot.
+    bot_profile(player_id) -> {"name", "trait"}: tên tiếng Việt gợi ý và tính cách của bot ngồi ghế đó.
+    Server đang tự đặt tên hiển thị cho bot (BOT_NAMES trong codebase/rooms.py), nên prompt chỉ dùng
+    mã ghế và tính cách, không dùng name, để bot không tự nhận một tên khác với tên trên bàn chơi.
 
 Luồng: read_view → (không có lượt thì trả mock, không gọi model) → call_model một lần, giới hạn giờ
 → đọc JSON → chuẩn hoá (cắt 150 ký tự, gắn chat ở pha thảo luận) → kiểm luật và kiểm lộ bí mật
@@ -175,6 +176,9 @@ _OWN_ROLE_WORDS = {
     "bao_ve": ["bao ve"], "phu_thuy": ["phu thuy", "binh doc", "binh cuu"],
     "tho_san": ["tho san"], "than_tinh_yeu": ["than tinh yeu", "ghep doi"],
 }
+# Câu nhắc người đã soi kèm phe: phải có từ nghi ngờ và không có từ khẳng định.
+_HEDGES = ["nghi", "co the", "co le", "hinh nhu", "co ve", "dang ngo", "doan", "cam giac", "nghi ngo"]
+_CERTAIN = ["chac chan", "khang dinh", "xac nhan", "dam bao", "sach", "100"]
 _ROLE_CODES = ["soi_thuong", "soi_con", "tien_tri", "tien_tri_tap_su", "bao_ve", "phu_thuy",
                "tho_san", "than_tinh_yeu", "tinh_nhan"]
 
@@ -207,8 +211,12 @@ def _safe_public(text, view):
         return False
     inspected = [p.get("target_id", "") for p in view.get("inspections", [])]
     for sentence in re.split(r"[.!?;\n]+", folded):
-        if any(pid and _has_word(sentence, pid.lower()) for pid in inspected) and (
-                _has_word(sentence, "soi") or _has_word(sentence, "dan") or _has_word(sentence, "sach")):
+        if not any(pid and _has_word(sentence, pid.lower()) for pid in inspected):
+            continue
+        if not (_has_word(sentence, "soi") or _has_word(sentence, "dan") or _has_word(sentence, "sach")):
+            continue
+        # Nghi ngờ thì được ("Mình nghi P05 là Sói"); khẳng định như người đã soi thì chặn.
+        if any(_has_word(sentence, w) for w in _CERTAIN) or not any(_has_word(sentence, w) for w in _HEDGES):
             return False
     return True
 
@@ -257,8 +265,8 @@ def _system(view):
     role = ROLES["roles"].get(view["role"], {"name": view["role"], "description": "", "phase_hints": {}})
     faction = ROLES["factions"].get(view["faction"], {"name": view["faction"], "win": ""})
     lines = [
-        "Bạn là %s, một người chơi trong ván Ma Sói ba phe (Dân, Sói, Tình Nhân). Tính cách: %s."
-        % (prof["name"], prof["trait"]),
+        "Bạn là người chơi ngồi ghế %s trong ván Ma Sói ba phe (Dân, Sói, Tình Nhân). Tính cách: %s."
+        % (view["player_id"], prof["trait"]),
         "Vai bí mật của bạn: %s. %s" % (role["name"], role["description"]),
         "Bạn thuộc %s. %s" % (faction["name"], faction["win"]),
     ]
@@ -272,8 +280,10 @@ def _system(view):
         found = ["%s %s" % (p.get("target_id"), "LÀ Sói" if p.get("is_wolf") or p.get("faction") == "soi"
                             else "không phải Sói") for p in view["inspections"]]
         lines.append("Bạn đã soi (bí mật, chỉ bạn biết): %s. Khi vote, chọn người đã soi ra Sói nếu người đó còn "
-                     "trong danh sách; không vote người đã soi là không phải Sói. Lời nói được nghi người đó, nhưng "
-                     "không nói mình đã soi hay mình là Tiên tri. reason ghi rõ dựa vào kết quả soi." % "; ".join(found))
+                     "trong danh sách; không vote người đã soi là không phải Sói. Lời nói chỉ được nêu nghi ngờ, "
+                     "ví dụ \"Mình nghi P05 là Sói\"; không khẳng định chắc chắn (\"chắc chắn\", \"xác nhận\", "
+                     "\"sạch\"), không nói mình đã soi hay mình là Tiên tri. reason ghi rõ dựa vào kết quả soi."
+                     % "; ".join(found))
     if view["role"] == "phu_thuy":
         lines.append("Không dùng bình độc (poison).")
     hint = role.get("phase_hints", {}).get(view["phase"]) or PHASE_HINTS.get(view["phase"])
