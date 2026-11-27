@@ -8,6 +8,7 @@ import json
 import logging
 from pathlib import Path
 from random import Random
+import ssl
 import sys
 import time
 from urllib.parse import urlsplit
@@ -33,6 +34,13 @@ BOT_MARGIN_SECONDS = 0.3
 SEND_TIMEOUT = 5
 ROOM_IDLE_SECONDS = 300
 MAX_PHASE_SECONDS = 600
+RTC_KINDS = frozenset({
+    "offer", "answer", "ice", "hangup",
+    "group_invite", "group_accept", "group_decline", "group_leave",
+})
+MAX_RTC_DATA = 6000
+RTC_RATE_LIMIT = 120
+RTC_RATE_WINDOW = 10
 
 
 async def send(connection, message):
@@ -120,7 +128,9 @@ class GameServer:
                     if member.connection is connection:
                         previous_host = room.host
                         room.disconnect(member)
-                        if room.engine is None or room.host is not previous_host:
+                        # Voice rooms must refresh everyone's peer list when a seat drops.
+                        if (room.engine is None or room.host is not previous_host
+                                or room.voice_enabled()):
                             await self._broadcast(room)
                         if not room.has_connection():
                             self._schedule_idle(room)
@@ -162,7 +172,9 @@ class GameServer:
                         "message": "Ghế của bạn đã chuyển sang tab hoặc thiết bị khác.",
                     })
             await send(connection, room.joined_message(member))
-            recipients = {member.player_id} if room.engine is not None else None
+            # Mid-match only the returning seat needs a fresh state, unless voice peers changed.
+            private = room.engine is not None and not room.voice_enabled()
+            recipients = {member.player_id} if private else None
             await self._broadcast(room, recipients)
         return room, member
 
@@ -199,9 +211,35 @@ class GameServer:
             room.runner.add_done_callback(self._games.discard)
         elif kind == "action":
             await self._human_action(room, member, message)
+        elif kind == "rtc_signal":
+            await self._relay_signal(room, member, message)
         else:
             raise RoomError("bad_message", "Lệnh không hợp lệ khi đã ở trong phòng.")
         return False
+
+    async def _relay_signal(self, room, member, message):
+        """Forward a WebRTC signal to one other connected player; the server never reads SDP."""
+        if not room.voice_enabled():
+            raise RoomError("voice_disabled", "Voice chỉ bật khi ván đang chạy và phòng không có bot.")
+        now = time.monotonic()
+        times = member.rtc_times
+        while times and now - times[0] >= RTC_RATE_WINDOW:
+            times.popleft()
+        if len(times) >= RTC_RATE_LIMIT:
+            raise RoomError("rate_limited", "Gửi tín hiệu voice quá nhanh.")
+        times.append(now)
+        target = message.get("to")
+        peer = next((m for m in room.members.values()
+                     if m is not member and m.connection is not None
+                     and m.player_id is not None and m.player_id == target), None)
+        if peer is None:
+            raise RoomError("bad_target", "Người nhận không có trong phòng hoặc đã ngắt kết nối.")
+        data = message.get("data")
+        if not isinstance(data, dict) or len(json.dumps(data)) > MAX_RTC_DATA:
+            raise RoomError("bad_message", "Tín hiệu voice không hợp lệ hoặc quá lớn.")
+        if data.get("kind") not in RTC_KINDS:
+            raise RoomError("bad_message", "Loại tín hiệu voice không hợp lệ.")
+        await send(peer.connection, {"type": "rtc_signal", "from": member.player_id, "data": data})
 
     async def _human_action(self, room, member, message):
         engine = room.engine
@@ -424,9 +462,15 @@ class GameServer:
 async def run(args):
     server = GameServer(discussion_seconds=args.discussion_seconds,
                         vote_seconds=args.vote_seconds, night_seconds=args.night_seconds)
+    context = None
+    if args.certfile:
+        # Browsers only allow microphones on HTTPS pages, which in turn need wss://.
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(args.certfile, args.keyfile)
+    scheme = "wss" if context is not None else "ws"
     try:
-        async with serve(server.handle, args.host, args.port, max_size=8192):
-            print(f"Ma Sói WebSocket: ws://{args.host}:{args.port}/ws", flush=True)
+        async with serve(server.handle, args.host, args.port, max_size=8192, ssl=context):
+            print(f"Ma Sói WebSocket: {scheme}://{args.host}:{args.port}/ws", flush=True)
             await asyncio.Future()
     finally:
         await server.close()
@@ -440,7 +484,11 @@ def main():
     parser.add_argument("--discussion-seconds", type=int, default=90)
     parser.add_argument("--vote-seconds", type=int, default=30)
     parser.add_argument("--night-seconds", type=int, default=20)
+    parser.add_argument("--certfile", help="PEM certificate to serve wss:// (needs --keyfile)")
+    parser.add_argument("--keyfile", help="PEM private key for --certfile")
     args = parser.parse_args()
+    if bool(args.certfile) != bool(args.keyfile):
+        parser.error("--certfile and --keyfile must be given together.")
     durations = (args.discussion_seconds, args.vote_seconds, args.night_seconds)
     if any(not 1 <= value <= MAX_PHASE_SECONDS for value in durations):
         parser.error(f"Phase durations must be whole seconds from 1 to {MAX_PHASE_SECONDS}.")

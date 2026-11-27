@@ -1,6 +1,7 @@
 """Lobby membership, reconnect tokens, and safe WebSocket message payloads."""
 
 import asyncio
+from collections import deque
 import secrets
 from dataclasses import dataclass, field
 
@@ -39,6 +40,8 @@ class Member:
     token: str
     connection: object
     player_id: str | None = None
+    # Monotonic times of recent rtc_signal messages, for the voice relay rate limit.
+    rtc_times: deque = field(default_factory=deque)
 
 
 @dataclass
@@ -211,6 +214,23 @@ class Room:
         self.dawn = Dawn(previous_views, set(after["last_deaths"]), survivors)
         self.phase_id += 1
 
+    def voice_enabled(self):
+        """Voice only runs during a match with no NPC seats (bots cannot hear or speak)."""
+        return self.engine is not None and not self.bots
+
+    def voice_peers(self, member):
+        return sorted(m.player_id for m in self.members.values()
+                      if m is not member and m.connection is not None and m.player_id is not None)
+
+    def voice_message(self, member, view):
+        if not self.voice_enabled():
+            return {"enabled": False, "can_speak": False, "peers": []}
+        # Use the phase the recipient sees (dawn shows day_arrival, nights may show night_prepare).
+        phase = view["phase"]
+        alive = any(p["player_id"] == member.player_id and p["alive"] for p in view["players"])
+        can_speak = phase == "finished" or (phase == "day_discussion" and alive)
+        return {"enabled": True, "can_speak": can_speak, "peers": self.voice_peers(member)}
+
     def state_message(self, member):
         view = self.engine.view(member.player_id)
         deadline = self.deadline
@@ -246,6 +266,7 @@ class Room:
             "type": "state", "code": self.code, "me": member.player_id,
             "names": self.names.copy(), "deadline": deadline, "phase_id": phase_id,
             "is_host": member is self.host, "acted": acted, "view": view, "reveal": reveal,
+            "voice": self.voice_message(member, view),
         }
 
 
