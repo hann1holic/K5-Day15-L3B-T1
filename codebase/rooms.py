@@ -263,6 +263,12 @@ class Room:
             view["phase"] = self.village.phase
             view["allowed_actions"] = self.village.allowed_actions(member.player_id)
             acted = False
+        elif view["phase"] == "finished" and deadline is None:
+            winner = view["winner"]
+            outcome = "draw" if winner == "hoa" else (
+                "victory" if view["faction"] == winner else "defeat"
+            )
+            view["effect"] = {"type": outcome, "id": phase_id, "player_id": member.player_id}
         elif view["phase"].startswith("night_") or view["phase"] == "pair":
             preparing = self.prepare_deadline is not None and bool(view["allowed_actions"])
             if preparing or not self.accepting or not view["allowed_actions"]:

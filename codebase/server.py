@@ -367,7 +367,8 @@ class GameServer:
                 if execution_end is not None:
                     await asyncio.sleep(max(0, execution_end - asyncio.get_running_loop().time()))
                     async with room.lock:
-                        room.vote_execution = None
+                        if engine.phase != "finished":
+                            room.vote_execution = None
                 if dawn_views is not None:
                     await self._play_dawn(room)
                     if room.village is not None and engine.phase == "day_discussion":
@@ -377,6 +378,7 @@ class GameServer:
                             async with room.lock:
                                 room.village.go_to_square(engine.living_ids())
             async with room.lock:
+                room.dawn = room.vote_execution = None
                 room.phase_id += 1
                 room.deadline = None
                 room.acted.clear()
@@ -413,7 +415,8 @@ class GameServer:
                 await self._broadcast(room)
         await asyncio.sleep(DAWN_STEP_SECONDS)
         async with room.lock:
-            room.dawn = None
+            if room.engine.phase != "finished":
+                room.dawn = None
 
     async def _play_village_phase(self, room, phase, seconds):
         loop = asyncio.get_running_loop()
