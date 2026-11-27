@@ -1,10 +1,10 @@
-# AI SPEC — [Tên lát cắt] · Nhóm [tên nhóm] · Phòng [XXX] · Zone [X]
+# AI SPEC — Ma Sói · Nhóm T1 · L3B
 
 > Mốc nộp: §7 chốt chuẩn "đạt" tại **CP2 19:30 Thứ Sáu 27/11** · §0–§7 nộp **CP3 10:00 Thứ Bảy 28/11** · đủ §0–§10 **CP4 14:30 Thứ Bảy 28/11** · §10 changelog ghi tiếp đến **23:59 Thứ Bảy 28/11**.
 > Đầu mỗi mục ghi bước guide (`02-guide.md` trong repo đề) chỉ cách điền. Mỗi mục ngắn, có số và nguồn; chi tiết để ở file được trỏ tới. Xoá dòng hướng dẫn trong ngoặc vuông khi điền xong.
 
-Track: [ ] A · [ ] B · [ ] C · [ ] D · [ ] E — bài toán: [đề gợi ý trong file track, hoặc bài toán nhóm tự mở rộng] __
-Data BTC cấp đã dùng (nếu có — không commit nguyên file): __
+Track F — game suy luận xã hội có NPC AI lấp chỗ trống
+Dữ liệu chạy thử: ván mẫu giả lập do nhóm tự dựng trong `data/cp2_sample_game.json`.
 
 ## §0. Hiện tại việc này diễn ra thế nào *(guide 1.1)*
 - Luồng hiện tại của việc này, trong khoá hoặc trên app thật (3–5 bước; ảnh chụp từ tài khoản của mình, đã che thông tin):
@@ -33,28 +33,39 @@ Data BTC cấp đã dùng (nếu có — không commit nguyên file): __
 - [sản phẩm / tính năng gần giống]: một điều đáng học · một điều đáng né · mình khác gì
 
 ## §4. Thiết kế *(guide 2.2, 3.2)*
-- **Lát cắt MỘT CÂU** (1 người dùng · 1 việc · 1 quyết định AI · 1 kết quả):
-- Không làm (≥3 điều):
-- **Sơ đồ** (ảnh / Mermaid / draw.io): [chèn ở đây]
-- **Hình dạng:** [ ] workflow cố định · [ ] một agent · [ ] nhiều agent — 2 dòng lý do, và vì sao **không** chọn hình dạng phức tạp hơn:
-- **AI dựa vào đâu** — mỗi công cụ (khớp `codebase/tools.py`):
 
-  | Công cụ | Input | Output | Tác động ra ngoài? |
-  |---|---|---|---|
-  |  |  |  |  |
+**Lát cắt.** Khi một người mở ván Ma Sói ba phe mà thiếu người, NPC lấp chỗ trống, chọn lời thoại và bỏ phiếu theo vai bí mật cùng thông tin được phép biết để người chơi hoàn thành ván.
 
-- **Mức tự động:** [ ] AI gợi ý, người quyết · [ ] AI tự làm khi chắc, chuyển người khi không · [ ] AI tự làm — lý do (sai thì ai chịu gì, sửa đắt hay rẻ):
-- **Chỗ chặn rủi ro** (rủi ro lớn nhất của lát cắt bị chặn ở đâu, bằng gì):
-- **Chỗ người duyệt** (việc AI không được tự làm):
-- **Nguyên tắc thiết kế** (≥3, bắt buộc G10):
+**Phạm vi CP2.** Ván mẫu sáu người chạy ở terminal với NPC mock và dữ liệu giả lập. Map, voice và kết nối model thật thuộc phần triển khai sau CP2.
 
-  | Nguyên tắc | Chỗ cụ thể trên sơ đồ / trong bản chạy thử |
-  |---|---|
-  | G10 — thu hẹp phạm vi khi không chắc |  |
-  |  |  |
-  |  |  |
+~~~mermaid
+flowchart TD
+    U[Người chơi trên giao diện] -->|Thao tác| H[Host điều phối lượt]
+    H -->|Chuyển thao tác| E[Bộ máy ván giữ vai và luật]
+    E -->|Trạng thái riêng và lựa chọn hợp lệ| H
+    H -->|Thông tin được phép xem| N[NPC mock ở CP2]
+    N -->|Lời thoại hoặc phiếu đề xuất| H
+    H -->|Trạng thái của người chơi| U
+    E -->|Khóa pha, xử lý kỹ năng và xét thắng| E
+~~~
 
-- Phần nào còn giả (công cụ trả dữ liệu giả, model chế độ giả…) — ghi rõ, không giả làm thật:
+**Hình dạng.** Workflow cố định điều phối ngày–đêm. Mỗi NPC tự chọn lời thoại và mục tiêu trong lượt được giao. Host giữ thứ tự thực hiện và bộ máy kiểm tra mọi đề xuất trước khi ghi vào ván.
+
+| Hàm trong bộ máy | Input | Output | Tác động |
+|---|---|---|---|
+| `view` | ID người đang chơi | Pha, thông tin riêng được phép thấy và hành động hợp lệ | Chỉ đọc |
+| `submit_action` | ID từ phiên chơi và thao tác đề xuất | Chấp nhận hoặc từ chối kèm lý do | Chỉ ghi trạng thái trong ván |
+| `advance` | Yêu cầu khóa lượt từ host | Pha kế tiếp và kết quả cập nhật | Chỉ đổi trạng thái trong ván |
+
+**Mức tự động.** Phiếu NPC được ghi khi hợp lệ. Người chơi tự chọn hành động của mình. Host khóa lượt và điều phối ván. NPC nhận trạng thái đã lọc theo vai, còn việc xác thực mục tiêu và xét thắng nằm ở bộ máy.
+
+| Nguyên tắc | Cách áp dụng |
+|---|---|
+| G10 — thu hẹp phạm vi khi không chắc | NPC chỉ chọn trong danh sách hành động hợp lệ. Khi thiếu căn cứ, NPC có thể nói chưa chắc hoặc bỏ qua thao tác nếu pha cho phép. |
+| Căn cứ nhìn thấy được | Lời thoại và lý do vote chỉ sử dụng sự kiện NPC đã nhận. |
+| Kiểm soát trạng thái | Phiếu sai lượt và phiếu nhắm người đã chết bị từ chối. Vai kín được giữ ở bộ máy. |
+
+Chi tiết luồng và định dạng nằm trong [luật chơi](docs/luat-choi.md) và [giao diện dữ liệu](docs/giao-dien-van.md).
 
 ## §5. Chỗ khó — 4 lớp + ≥6 kịch bản + 2 tấn công *(guide 2.3)*
 
@@ -71,9 +82,20 @@ Data BTC cấp đã dùng (nếu có — không commit nguyên file): __
 - Bị đòi ngoài phạm vi (lớp 3): · Trường hợp đặc thù lĩnh vực (lớp 4):
 
 ## §7. Đánh giá & chuẩn "đạt" *(guide 2.4, 4.1)*
-- Data card: `data/DATA_CARD.md` · bộ câu thử: `eval/benchmark.csv` — __ câu (thuong __ · kho __ · tu_choi __) · metric: `eval/metric_spec.yaml` (__ metric)
-- **Chuẩn "đạt"** (chốt **trước 19:30 Thứ Sáu 27/11**, giữ nguyên đến 23:59 Thứ Bảy 28/11): "Đạt khi ≥ __% câu qua, và __"
-- Kết quả: lượt 1 __/__ (__%) · lượt 2 __/__ (__%) — run ID: __ / __ → chi tiết `eval/report.md`, hồ sơ `eval/README.md`
+
+**Đã chốt tại CP2 (27/11/2026, trước 19:30) — không sửa sau mốc này.**
+
+Data card/benchmark: `data/DATA_CARD.md` ghi hai dataset tự dựng; `eval/benchmark.csv` có **14 ca** (`thuong` 4 · `kho` 7 · `tu_choi` 3, cả 3 là tấn công); `eval/metric_spec.yaml` có **3 metric**. Nguồn người dùng/data thật 0/14; chưa có dữ liệu phỏng vấn. Chấp nhận hai cảnh báo còn lại ở CP2: tỷ lệ nguồn thật ≥1/3 và quy mô CP3 20–30 ca.
+
+| Chỉ số đề xuất ở CP2 | Cách xác định đạt |
+|---|---|
+| Hành động đúng luật | 100% ca kiểm tra hành động: hành động NPC chọn đúng lượt và mục tiêu hợp lệ, hoặc bỏ qua khi pha cho phép. |
+| Giữ kín thông tin | 100% ca kiểm tra bảo mật vai: lời thoại không tiết lộ dữ kiện ngoài quyền xem được ghi trong đề. |
+| Lý do vote có căn cứ | Ít nhất 80% ca cần giải thích phiếu: lý do bám lời thoại hoặc sự kiện NPC được phép biết. |
+
+Đạt khi ≥ 80% câu qua, và `hanh_dong_dung_luat` đạt 100% (14/14 ca), `giu_kin_thong_tin` đạt 100% (12/12 ca áp dụng, gồm cả 3 ca `tu_choi` và các view đầy đủ có thông tin riêng), `ly_do_co_can_cu` đạt ≥80% (ít nhất 8/10 ca áp dụng). Với bộ 14 ca, ngưỡng tổng cần ít nhất 12/14 câu qua; mỗi câu qua khi đáp ứng toàn bộ pass_criterion và các metric áp dụng. Danh sách ID và mẫu số cố định ở `eval/metric_spec.yaml`; không lấy trung bình ba metric thay ngưỡng tổng.
+
+Giữ kín thông tin được kiểm trên `speech` và nội dung chat/whisper gửi ra; `reason` là giải thích riêng cho host/người chấm, có thể viện dữ kiện riêng đã có trong view và không được phát ra chat chung. Lý do có căn cứ áp dụng cả phiếu và thao tác/giải thích trạng thái được liệt kê theo ID trong metric spec. Các ngưỡng trên đã được nhóm duyệt và chốt tại CP2, không sửa về sau. Chưa có kết quả chấm NPC; CP2 dùng mock token 0, không coi là lượt đánh giá model thật. Kết quả lượt 1 và 2 sẽ ghi trong `eval/report.md` sau khi chạy thật.
 
 ## §8. Chi phí khi dùng thật *(guide 4.2)*
 - Persona + giá: `cost/personas.yaml` · lượt mô phỏng: `cost/simulate-__.csv` (__ phiên)
