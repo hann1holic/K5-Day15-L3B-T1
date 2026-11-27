@@ -19,7 +19,7 @@ Mở địa chỉ Vite in ra, mặc định là http://localhost:5173. Tạo ph�
 
 Để thử trên nhiều máy cùng mạng, bật server bằng `python -m codebase.server --host 0.0.0.0` và mở trang Vite bằng IP của máy chủ. Giao diện dùng cùng hostname với trang, cổng 8000 và đường dẫn `/ws`. Đặt `VITE_WS_URL` trước khi chạy Vite nếu dùng endpoint khác.
 
-Bản M1 có sảnh, phòng chờ, các pha ván, chat chữ chung và riêng, kết quả và chơi lại. Dữ liệu luật và quyền xem lấy từ server. Tải lại tab sẽ dùng token của tab đó để vào lại. Khi mở tab mới, người chơi có thể tự chọn vào lại phòng đã lưu. Mỗi ghế chỉ hoạt động ở một tab hoặc thiết bị. Khi vào lại ở nơi khác, tab cũ về sảnh và hiện thông báo. Nếu máy chủ báo ván gặp lỗi, giao diện cũng về sảnh để người chơi có thể tạo hoặc vào phòng khác.
+Bản M1 có sảnh, phòng chờ, các pha ván, chat chữ chung và riêng, kết quả và chơi lại. Dữ liệu luật và quyền xem lấy từ server. Tải lại tab sẽ dùng token của tab đó để vào lại. Khi mở tab mới, người chơi có thể tự chọn vào lại phòng đã lưu. Mỗi ghế chỉ hoạt động ở một tab hoặc thiết bị. Khi vào lại ở nơi khác, tab cũ về sảnh và hiện thông báo. Nếu máy chủ báo ván gặp lỗi, cả phòng về phòng chờ để chủ phòng bắt đầu ván mới. Khi ván đã kết thúc, người mới vào bằng mã phòng cũng đưa cả phòng về phòng chờ.
 
 ## Thời gian và thao tác trong ván
 

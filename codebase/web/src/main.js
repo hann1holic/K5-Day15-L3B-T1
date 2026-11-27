@@ -28,6 +28,15 @@ const actionCopy = {
   poison: ["Dùng bình độc", "Loại mục tiêu khi chốt đêm, kể cả khi họ đang được Bảo vệ."],
   mark: ["Ghim mục tiêu", "Người bị ghim chỉ bị loại theo nếu Thợ săn chết."],
 };
+// Tên lượt sắp tới trong 5 giây chuẩn bị (`view.next_phase`).
+const preparing = {
+  pair: "ghép đôi",
+  night_wolf: "vote cắn",
+  night_protect: "bảo vệ",
+  night_inspect: "soi",
+  night_witch: "dùng bình",
+  night_hunter: "ghim mục tiêu",
+};
 const timerFields = {
   discussion_seconds: "discussion-seconds",
   vote_seconds: "vote-seconds",
@@ -56,6 +65,7 @@ let timerSignature = "";
 let savingTimers = false;
 let session = loadSession(sessionStorage);
 let rejoining = false;
+let deathNoticeFor = null;
 
 function loadSession(storage) {
   try {
@@ -178,6 +188,9 @@ function connect({ preserveNotice = false } = {}) {
 }
 
 function receive(message) {
+  // Sau khi rời phòng, server có thể vẫn còn tin đang trên đường tới: bỏ qua để không mở lại phòng cũ.
+  // `joined` luôn đến trước `lobby`/`state`, nên `room` đã có khi vào hoặc vào lại.
+  if (!room && ["lobby", "state", "action_result"].includes(message.type)) return;
   switch (message.type) {
     case "joined":
       room = message.code;
@@ -186,6 +199,12 @@ function receive(message) {
       notice();
       break;
     case "lobby":
+      // Về phòng chờ (ván lỗi hoặc có người mới vào sau khi ván kết thúc): bỏ ván cũ.
+      if (match) {
+        match = null;
+        actionSignature = chatSignature = "";
+        $("action-status").textContent = "";
+      }
       lobby = message;
       renderLobby();
       break;
@@ -196,7 +215,8 @@ function receive(message) {
         $("action-status").textContent = "";
       }
       match = message;
-      if ($("notice").dataset.tone === "error") notice();
+      // Chỉ xoá thông báo lỗi khi sang lượt mới, để tin lỗi không biến mất sau 0,7 giây lúc trời sáng.
+      if (phaseChanged && $("notice").dataset.tone === "error") notice();
       if (message.view.phase === "finished") {
         renderResult();
       } else {
@@ -226,15 +246,20 @@ function receive(message) {
         break;
       }
       if (message.code === "game_error") {
-        if (room && online()) send("leave");
-        resetRoom();
-        notice(message.message || "Ván đã dừng. Bạn đã trở về sảnh.", "error");
+        // Server giữ phòng và gửi ngay danh sách phòng chờ sau tin này: ở lại phòng để chơi ván mới.
+        match = null;
+        awaitingAction = false;
+        actionSignature = chatSignature = "";
+        $("action-status").textContent = "";
+        notice(message.message || "Ván đã dừng. Phòng đã về phòng chờ.", "error");
         break;
       }
       if (savingTimers) {
         savingTimers = false;
         updateTimerControls();
       }
+      // Server từ chối đổi số ghế thì không gửi lại phòng chờ: trả ô chọn về giá trị thật.
+      if (lobby && display === "lobby") $("lobby-seats").value = lobby.seats;
       awaitingAction = false;
       if (rejoining && ["bad_token", "room_not_found"].includes(message.code)) {
         resetRoom();
@@ -348,6 +373,11 @@ function playerCard(player, revealed = false) {
 // Thông báo đầu lượt: sáng báo người chết trong đêm, tối báo kết quả bỏ phiếu.
 function roundNews(view) {
   const list = (ids) => ids.map(nameOf).join(", ");
+  // Lúc tập trung, server cố ý giữ kín danh sách người chết: chỉ báo ai đã có mặt.
+  if (view.phase === "day_arrival") {
+    const arrived = view.arrivals?.length ? "Đã có mặt ở phòng khách: " + list(view.arrivals) + "." : "Trời sáng. Mọi người đang tới phòng khách.";
+    return (view.you_died ? "Bạn đã bị loại trong đêm qua. " : "") + arrived;
+  }
   if (view.phase.startsWith("day_")) {
     return view.last_deaths.length
       ? "Đêm qua: " + list(view.last_deaths) + " bị loại."
@@ -372,7 +402,12 @@ function renderGame() {
   $("game").dataset.night = String(night);
   $("round-label").textContent = "Phòng " + match.code + " · Vòng " + view.round;
   $("phase-label").textContent = night ? "Đêm xuống" :
-    { day_discussion: "Thảo luận", day_vote: "Bỏ phiếu" }[view.phase] || "Đang chơi";
+    { day_arrival: "Trời sáng", day_discussion: "Thảo luận", day_vote: "Bỏ phiếu" }[view.phase] || "Đang chơi";
+  // Tín hiệu riêng cho người bị loại trong đêm: báo một lần mỗi lần tập trung.
+  if (view.phase === "day_arrival" && view.you_died && deathNoticeFor !== match.phase_id) {
+    deathNoticeFor = match.phase_id;
+    notice("Bạn đã bị loại trong đêm qua. Bạn vẫn có thể theo dõi đến hết ván.", "error");
+  }
   $("round-news").textContent = roundNews(view);
   renderStage($("stage"), match);
   $("player-role").textContent = roleName(view.role);
@@ -398,6 +433,11 @@ function renderGame() {
 
 function updateClock() {
   if (display !== "game" || !match) return;
+  // Pha tập trung buổi sáng không có hạn giờ.
+  if (match.deadline == null) {
+    $("timer").textContent = "";
+    return;
+  }
   const seconds = Math.max(0, Math.ceil((match.deadline - Date.now()) / 1000));
   $("timer").textContent = Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
 }
@@ -438,7 +478,12 @@ function actionDescription(kind) {
 
 function actionGuide(view, actions) {
   const me = view.players.find((player) => player.player_id === match.me);
-  if (!me?.alive) return "Bạn đã bị loại. Bạn vẫn có thể theo dõi đến hết ván.";
+  // Lúc tập trung, `players` còn là trạng thái trước đêm, nên dựa vào `you_died`.
+  if (!me?.alive || view.you_died) return "Bạn đã bị loại. Bạn vẫn có thể theo dõi đến hết ván.";
+  if (view.phase === "day_arrival") return "Mọi người đang lần lượt tới phòng khách. Thảo luận mở khi tất cả người còn sống đã có mặt.";
+  if (view.phase === "night_prepare") {
+    return "Chuẩn bị: sắp đến lượt " + (preparing[view.next_phase] || "của bạn") + ". Lượt mở khi hết đếm ngược.";
+  }
   if (actions.some((action) => action.type === "vote")) {
     return view.phase === "night_wolf"
       ? "Đến lượt phe Sói. Kết quả cú cắn sẽ được xử lý sau khi các vai khác hành động."
@@ -490,7 +535,8 @@ function renderActionsAndChat() {
   );
   $("turn-panel").dataset.active = String(Boolean(targetActions.length));
   $("turn-title").textContent = targetActions.length === 1 ? actionDescription(targetActions[0].type)[0]
-    : targetActions.length > 1 ? "Chọn kỹ năng" : "Lượt của bạn";
+    : targetActions.length > 1 ? "Chọn kỹ năng"
+    : match.view.phase === "night_prepare" ? "Sắp đến lượt bạn" : "Lượt của bạn";
   $("phase-guide").textContent = actionGuide(match.view, targetActions);
   const signature = JSON.stringify([match.phase_id, targetActions]);
   const container = $("action-list");

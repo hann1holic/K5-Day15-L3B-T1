@@ -77,7 +77,10 @@ class Room:
         self.idle_task = None
 
     def join(self, name, connection):
-        if self.engine is not None:
+        # A finished match whose results are already out (deadline cleared) accepts newcomers.
+        finished = (self.engine is not None and self.engine.phase == "finished"
+                    and self.deadline is None)
+        if self.engine is not None and not finished:
             raise RoomError("game_in_progress", "Ván đã bắt đầu. Dùng mã vào lại nếu đã có ghế.")
         if len(self.members) >= self.seats:
             raise RoomError("room_full", "Phòng đã đủ chỗ.")
@@ -85,6 +88,9 @@ class Room:
             raise RoomError("bad_message", "Tên hiển thị cần từ 1 đến 20 ký tự.")
         if any(m.name.casefold() == name.strip().casefold() for m in self.members.values()):
             raise RoomError("name_taken", "Tên này đã có người dùng trong phòng.")
+        if finished:
+            # Everyone returns to the lobby so the host can start the next match with the newcomer.
+            self.back_to_lobby()
         member = Member(name.strip(), secrets.token_urlsafe(24), connection)
         self.members[member.token] = member
         if self.host is None:

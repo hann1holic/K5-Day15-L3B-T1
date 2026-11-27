@@ -17,6 +17,8 @@ export function renderStage(container, { view, names, me }) {
     const seat = node("li", "seat");
     seat.dataset.alive = String(player.alive);
     seat.dataset.self = String(player.player_id === me);
+    // Lúc tập trung buổi sáng, người chưa xuất hiện ở phòng khách hiện mờ.
+    if (view.phase === "day_arrival") seat.dataset.arrived = String(view.arrivals.includes(player.player_id));
     seat.style.left = 50 + 39 * Math.cos(angle) + "%";
     seat.style.top = 50 + 38 * Math.sin(angle) + "%";
     // Mọi người chung một kiểu nhân vật, chỉ khác màu.
