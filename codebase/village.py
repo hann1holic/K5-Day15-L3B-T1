@@ -2,9 +2,19 @@
 
 from collections import deque
 
-WIDTH = 24
-HEIGHT = 20
-SQUARE = (11, 9)
+WIDTH = 32
+HEIGHT = 26
+SQUARE = ((WIDTH - 1) // 2, (HEIGHT - 1) // 2)
+SQUARE_BOUNDS = {
+    "min_x": SQUARE[0] - 6, "min_y": SQUARE[1] - 4,
+    "max_x": SQUARE[0] + 6, "max_y": SQUARE[1] + 4,
+}
+SQUARE_SEAT_OFFSETS = (
+    (-4, -3), (-2, -3), (0, -3), (2, -3), (4, -3),
+    (5, -2), (5, -1), (5, 0), (5, 1), (5, 2),
+    (4, 3), (2, 3), (0, 3), (-2, 3), (-4, 3),
+    (-5, 2), (-5, 1), (-5, 0), (-5, -1), (-5, -2),
+)
 BONFIRE_OFFSETS = ((-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0))
 MOVE_INTERVAL = 0.10
 MOVE_JITTER_ALLOWANCE = 0.20
@@ -14,8 +24,8 @@ DIRECTIONS = ((1, 0), (-1, 0), (0, 1), (0, -1))
 HOUSE_TYPES = ("castle", "villa", "single_storey", "hut")
 HOUSE_DOORS = {
     f"H{row * 5 + col + 1:02}": (x, y, HOUSE_TYPES[row])
-    for row, y in enumerate((2, 6, 13, 17))
-    for col, x in enumerate((2, 6, 10, 14, 18))
+    for row, y in enumerate((3, 6, 19, 23))
+    for col, x in enumerate((4, 10, 15, 21, 26))
 }
 HOUSE_ENTRANCES = {house: (x, y + 1) for house, (x, y, _) in HOUSE_DOORS.items()}
 BLOCKED_TILES = {
@@ -72,14 +82,22 @@ class Village:
         self.next_move = {}
         self.dirty = False
 
-    def go_to_square(self, alive):
-        self.positions = dict.fromkeys(alive, SQUARE)
+    def go_to_square(self, alive, *, spread=True):
+        if spread:
+            players = sorted(alive)
+            seats = len(SQUARE_SEAT_OFFSETS)
+            self.positions = {}
+            for index, pid in enumerate(players):
+                dx, dy = SQUARE_SEAT_OFFSETS[index * seats // len(players)]
+                self.positions[pid] = (SQUARE[0] + dx, SQUARE[1] + dy)
+        else:
+            self.positions = dict.fromkeys(alive, SQUARE)
         self.next_move.clear()
 
     def begin_housing(self, alive):
         self.phase = "night_housing"
         self.homes = {pid: house for pid, house in self.homes.items() if pid in alive}
-        self.go_to_square(alive)
+        self.go_to_square(alive, spread=False)
         self.sleeping.clear()
         self.held.clear()
 
@@ -95,7 +113,7 @@ class Village:
 
     def begin_lucky_day(self, alive):
         self.phase = "lucky_day"
-        self.go_to_square(alive)
+        self.go_to_square(alive, spread=False)
         self.held.clear()
         self.bot_item_targets.clear()
         self.items = dict(zip(ITEM_KINDS, self.rng.sample(SEARCH_TILES, len(ITEM_KINDS))))
@@ -220,6 +238,7 @@ class Village:
             "size": {"width": WIDTH, "height": HEIGHT},
             "blocked_tiles": [{"x": x, "y": y} for x, y in sorted(BLOCKED_TILES)],
             "square": {"x": SQUARE[0], "y": SQUARE[1]},
+            "square_bounds": SQUARE_BOUNDS.copy(),
             "positions": {key: {"x": x, "y": y} for key, (x, y) in positions.items()},
             "home_id": self.homes.get(pid),
             "area": (

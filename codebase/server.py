@@ -33,6 +33,7 @@ VOTE_SCENE_SECONDS = 2
 HOUSING_SECONDS = 15
 LUCKY_DAY_SECONDS = 30
 MAP_UPDATE_SECONDS = 0.2
+BOT_HOUSING_STEP_SECONDS = 0.4
 BOT_WALK_SECONDS = 0.5
 BOT_MARGIN_SECONDS = 0.3
 SEND_TIMEOUT = 5
@@ -424,6 +425,7 @@ class GameServer:
     async def _play_village_phase(self, room, phase, seconds):
         loop = asyncio.get_running_loop()
         village = room.village
+        bot_step_seconds = BOT_HOUSING_STEP_SECONDS if phase == "night_housing" else BOT_WALK_SECONDS
         async with room.lock:
             alive = room.engine.living_ids()
             if phase == "night_housing":
@@ -437,7 +439,7 @@ class GameServer:
             room.accepting = True
             village.dirty = False
             await self._broadcast(room)
-        next_bot_step = loop.time() + BOT_WALK_SECONDS
+        next_bot_step = loop.time() + bot_step_seconds
         while loop.time() < room.turn_end:
             await asyncio.sleep(min(MAP_UPDATE_SECONDS, max(0, room.turn_end - loop.time())))
             async with room.lock:
@@ -449,7 +451,7 @@ class GameServer:
                         village.bots_go_home(room.bots, now)
                     else:
                         village.bots_search(room.bots, now)
-                    next_bot_step = now + BOT_WALK_SECONDS
+                    next_bot_step = now + bot_step_seconds
                 if village.dirty:
                     village.dirty = False
                     await self._broadcast(room)
