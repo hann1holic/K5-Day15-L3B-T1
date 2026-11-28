@@ -81,6 +81,7 @@ class GameEngine:
         self._wolf_chat = []
         self._votes = {}
         self._day_items = {}
+        self._night_shields = set()
         self._lucky_vote_result = None
         self._night_actions = {}
         self._wolf_targets = []
@@ -175,6 +176,8 @@ class GameEngine:
                 "shielded": self._lucky_vote_result["shielded"],
                 "double_voters": self._lucky_vote_result["double_voters"][:],
             }
+        if player_id in self._night_shields:
+            view["night_shield"] = True
         if self._factions[player_id] == "soi":
             view["wolf_peers"] = sorted(p for p in self._players
                                        if self._factions[p] == "soi" and p != player_id)
@@ -258,7 +261,7 @@ class GameEngine:
         return sorted(player_id for player_id, count in counts.items() if count == highest)
 
     def _bite_victims(self):
-        return set(self._wolf_targets) - {self._night_actions.get("protect")}
+        return set(self._wolf_targets) - {self._night_actions.get("protect")} - self._night_shields
 
     def _start_night(self):
         self.phase = "night_wolf"
@@ -319,9 +322,12 @@ class GameEngine:
                 {"shielded": shielded, "double_voters": double_voters}
                 if shielded or double_voters else None
             )
+            night_shields = {pid for pid, item in self._day_items.items()
+                             if item == "shield" and pid != shielded}
             self._day_items.clear()
             self._last_deaths = self._resolve_deaths([self._eliminated])
             if not self._finish_if_ready():
+                self._night_shields = night_shields & self._alive
                 self.round += 1
                 self._start_night()
         return self.phase
@@ -336,6 +342,8 @@ class GameEngine:
         if "poison" in self._night_actions:
             victims.add(self._night_actions["poison"])
             self._potions.remove("poison")
+        victims.difference_update(self._night_shields)
+        self._night_shields.clear()
         if "mark" in self._night_actions:
             self._hunter_mark = self._night_actions["mark"]
         self._last_deaths = self._resolve_deaths(sorted(victims))
