@@ -1,6 +1,7 @@
 """Lobby membership, reconnect tokens, and safe WebSocket message payloads."""
 
 import asyncio
+from collections import Counter
 import secrets
 from dataclasses import dataclass, field
 
@@ -85,7 +86,11 @@ class Room:
         self.accepting = False
         self.acted = set()
         self.bot_tasks = []
-        self.bot_discussion_replies = set()
+        self.debate_mentions = {}       # bot id -> chat line it was called out in, answered first
+        self.debate_lines = Counter()   # bot lines spoken in the current discussion phase
+        self.debate_order = []
+        self.debate_last = None
+        self.debate_last_replied = False
         self.discussion_chat_start = 0
         self.bot_workers = set()
         self.turn_end = 0

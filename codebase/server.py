@@ -27,8 +27,11 @@ from agent import answer, mentions_player, mock_day_vote_action, mock_discussion
 LOGGER = logging.getLogger(__name__)
 MAX_CHAT_LENGTH = 200
 BOT_TIMEOUT = 5
-DEBATE_BATCH_SIZE = 3
-DEBATE_REPLY_PAUSE = 15
+# Bots argue one at a time, each reading the chat so far, with a short human-like pause between lines.
+DEBATE_FIRST_GAP = (0.8, 2.0)
+DEBATE_GAP = (1.5, 3.5)
+DEBATE_MIN_LEFT = 2.0       # no new bot line when less than this is left in the phase
+DEBATE_LINES_PER_BOT = 3    # caps model calls per bot per discussion phase
 PREPARE_SECONDS = 5
 DAWN_STEP_SECONDS = 0.7
 VOTE_SCENE_SECONDS = 2
@@ -187,7 +190,11 @@ class GameServer:
                 map_phase = room.village is not None and room.village.phase is not None
                 if (room.accepting and not map_phase and pid is not None and pid not in room.acted
                         and room.engine.allowed_actions(pid)):
-                    room.bot_tasks.append(asyncio.create_task(self._bot_turn(room, room.phase_id, pid)))
+                    if room.engine.phase == "day_discussion":
+                        # The NPC taking this seat waits for its turn in the discussion queue.
+                        self._join_discussion(room, pid)
+                    else:
+                        room.bot_tasks.append(asyncio.create_task(self._bot_turn(room, room.phase_id, pid)))
                 await self._broadcast(room)
                 if not room.has_connection():
                     self._schedule_idle(room)
@@ -413,43 +420,87 @@ class GameServer:
         self._check_ready(room)
         bots = [pid for pid in sorted(room.bots) if room.engine.allowed_actions(pid)]
         if room.engine.phase == "day_discussion":
-            room.bot_discussion_replies.clear()
+            room.debate_mentions.clear()
+            room.debate_lines.clear()
+            room.debate_last = None
+            room.debate_last_replied = False
+            room.debate_order = list(bots)
+            room.rng.shuffle(room.debate_order)
             if bots:
                 room.discussion_chat_start = len(room.engine.view(bots[0])["public_chat"])
-            room.bot_tasks = [asyncio.create_task(self._bot_discussion(room, phase_id, bots))] if bots else []
+            room.bot_tasks = [asyncio.create_task(self._bot_discussion(room, phase_id))] if bots else []
             return
         room.bot_tasks = [asyncio.create_task(self._bot_turn(room, phase_id, pid)) for pid in bots]
 
-    async def _bot_discussion(self, room, phase_id, bots):
-        # Give later speakers something public to respond to before starting more calls.
-        loop = asyncio.get_running_loop()
-        opened_at = loop.time()
-        reply_at = opened_at + min(DEBATE_REPLY_PAUSE, (room.turn_end - opened_at) / 3)
-        await self._bot_turn(room, phase_id, bots[0])
-        for start in range(1, len(bots), DEBATE_BATCH_SIZE):
-            batch = bots[start:start + DEBATE_BATCH_SIZE]
-            await asyncio.gather(*(self._bot_turn(room, phase_id, pid) for pid in batch))
+    def _join_discussion(self, room, pid):
+        if pid in room.debate_order:
+            return
+        room.debate_order.append(pid)
+        if not any(not task.done() for task in room.bot_tasks):
+            room.bot_tasks.append(asyncio.create_task(self._bot_discussion(room, room.phase_id)))
 
-        # Leave a window for human input, then let bots revisit the discussion.
-        await asyncio.sleep(max(0, reply_at - loop.time()))
-        for start in range(0, len(bots), DEBATE_BATCH_SIZE):
+    def _next_speaker(self, room):
+        """Who talks next: someone just called out answers first, then whoever has spoken least.
+
+        A called-out bot and a bot that has not spoken yet take turns, so a two-bot quarrel
+        cannot keep the rest of the village silent.
+        """
+        def can_speak(pid):
+            return (pid in room.bots and room.debate_lines[pid] < DEBATE_LINES_PER_BOT
+                    and bool(room.engine.allowed_actions(pid)))
+
+        last = room.debate_last
+        silent = [pid for pid in room.debate_order if can_speak(pid) and room.debate_lines[pid] == 0]
+        if silent and room.debate_last_replied:
+            room.debate_last_replied = False
+            return silent[0], None
+        while room.debate_mentions:
+            pid = next(iter(room.debate_mentions))
+            reply_to = room.debate_mentions.pop(pid)
+            if can_speak(pid):
+                room.debate_last_replied = True
+                return pid, reply_to
+        room.debate_last_replied = False
+        if silent:
+            return silent[0], None
+        # Later rounds: only bots with something new to answer, never the same bot twice in a row.
+        pool = [pid for pid in room.debate_order if can_speak(pid) and pid != last and self._has_news(room, pid)]
+        if not pool:
+            return None, None
+        fewest = min(room.debate_lines[pid] for pid in pool)
+        return room.rng.choice([pid for pid in pool if room.debate_lines[pid] == fewest]), None
+
+    def _has_news(self, room, pid):
+        chat = room.engine.view(pid)["public_chat"][room.discussion_chat_start:]
+        return bool(chat) and chat[-1]["player_id"] != pid
+
+    async def _bot_discussion(self, room, phase_id):
+        loop = asyncio.get_running_loop()
+        gap = DEBATE_FIRST_GAP
+        while True:
+            await asyncio.sleep(room.rng.uniform(*gap))
+            gap = DEBATE_GAP
             async with room.lock:
-                if not room.accepting or room.phase_id != phase_id or loop.time() >= room.turn_end:
+                if (not room.accepting or room.phase_id != phase_id
+                        or room.turn_end - loop.time() < DEBATE_MIN_LEFT):
                     return
-                batch = [pid for pid in bots[start:start + DEBATE_BATCH_SIZE]
-                         if pid not in room.bot_discussion_replies]
-                room.bot_discussion_replies.update(batch)
-            await asyncio.gather(*(self._bot_turn(room, phase_id, pid, rebuttal=True) for pid in batch))
+                pid, reply_to = self._next_speaker(room)
+                if pid is None:
+                    # Nothing new to answer: wait for a human line or a seat change.
+                    gap = (1.0, 1.0)
+                    continue
+                rebuttal = room.debate_lines[pid] > 0 or reply_to is not None
+                room.debate_lines[pid] += 1
+                room.debate_last = pid
+            await self._bot_turn(room, phase_id, pid, rebuttal=rebuttal, reply_to=reply_to)
 
     def _queue_debate_reply(self, room, speaker, text):
-        replies = room.bot_discussion_replies
-        candidates = (room.bots & room.acted) - replies - {speaker}
-        for pid in sorted(candidates):
-            if room.engine.allowed_actions(pid) and mentions_player(text, pid, room.names[pid]):
-                replies.add(pid)
-                room.bot_tasks.append(asyncio.create_task(self._bot_turn(
-                    room, room.phase_id, pid, rebuttal=True, reply_to={"player_id": speaker, "text": text.strip()},
-                )))
+        """A bot named in a chat line gets the next turn to answer it."""
+        for pid in sorted(room.bots - {speaker}):
+            if (pid not in room.debate_mentions and room.debate_lines[pid] < DEBATE_LINES_PER_BOT
+                    and room.engine.allowed_actions(pid)
+                    and mentions_player(text, pid, room.names[pid])):
+                room.debate_mentions[pid] = {"player_id": speaker, "text": text.strip()}
                 break
 
     async def _play_dawn(self, room):
@@ -559,7 +610,6 @@ class GameServer:
                     return
                 view = self._bot_view(room, player_id, rebuttal, reply_to)
                 if rebuttal and view["reply_to"] is None:
-                    room.bot_discussion_replies.discard(player_id)
                     return
             action = await self._choose(room, view, end - loop.time())
             async with room.lock:
