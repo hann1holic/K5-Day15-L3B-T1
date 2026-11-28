@@ -1,0 +1,36 @@
+/* Nền tranh đổi cảnh (backdrop.js). Nằm sau mọi thứ và không chặn bấm; body phải trong suốt thì mới thấy. */
+@property --floor { syntax: "<number>"; inherits: true; initial-value: .85; }
+
+.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: #060405; }
+.backdrop[hidden], .backdrop-layer[hidden] { display: none; }
+/* z-index: 0 giữ thứ tự chồng của các cảnh trong khung này, để hạt, chớp và lớp tối luôn nằm trên tranh. */
+.backdrop-stage { position: absolute; z-index: 0; inset: -14px; transition: transform 1s cubic-bezier(.2, .7, .2, 1); }
+.backdrop-layer { position: absolute; inset: 0; }
+.backdrop-art { position: absolute; will-change: transform; }
+.backdrop-image { display: block; width: 100%; height: 100%; }
+.backdrop-light { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; mix-blend-mode: screen; animation: backdrop-pulse 5s ease-in-out infinite alternate; }
+.backdrop-fx { position: absolute; inset: 0; width: 100%; height: 100%; }
+.backdrop-flash { position: absolute; inset: 0; opacity: 0; mix-blend-mode: screen; }
+/* Tối bên trái (sau chữ), dưới đáy và bốn góc để chữ và khung luôn đọc rõ. */
+.backdrop-shade { position: absolute; inset: 0; transition: --floor .7s; background:
+  linear-gradient(90deg, #040305b8 0, #04030575 28%, #04030500 50%),
+  linear-gradient(0deg, rgb(4 3 5 / var(--floor)) 0, #04030500 32%),
+  radial-gradient(ellipse 125% 105% at 50% 40%, #0000 55%, #000000b8 100%); }
+/* Phòng chờ và kết quả có nhiều chữ hơn nên nền lùi lại. */
+.backdrop[data-screen=lobby] .backdrop-shade, .backdrop[data-screen=result] .backdrop-shade { background:
+  linear-gradient(#040305a6, #040305d6), radial-gradient(ellipse 125% 105% at 50% 40%, #0000 55%, #000000b8 100%); }
+@keyframes backdrop-pulse { from { opacity: .35; transform: translate(-50%, -50%) scale(.93); } to { opacity: 1; transform: translate(-50%, -50%) scale(1.07); } }
+
+/* Chữ trang đầu nổi trên nền tranh. */
+.entry h1 { text-shadow: 0 0 36px #b3220f99, 0 5px 24px #000, 0 0 3px #000; }
+.entry-copy p { color: #ded2bb; text-shadow: 0 1px 12px #000, 0 0 4px #000; }
+
+@media (max-width: 760px) {
+  .backdrop-art { mask-image: linear-gradient(#000 70%, #0000 99%); }
+  .backdrop-shade { background: linear-gradient(#04030540, #04030520 28%, #040305a6 55%, #040305e6); }
+  /* Chừa chỗ phía trên cho tranh; chữ nằm sát khung nhập tên. */
+  .entry-copy { display: flex; flex-direction: column; justify-content: flex-end; min-height: 34vh; padding: 0 0 .4rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .backdrop-light { animation: none; }
+}

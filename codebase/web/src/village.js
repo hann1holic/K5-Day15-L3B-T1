@@ -8,6 +8,7 @@ import {
 import { drawActor, drawTile, loadArt, outfitOf, tileRect } from "./sprites.js";
 import { drawFire, drawHouse, drawLoot, drawShieldBreak, drawWolf, houseRect, iconUrl, loadVillageArt } from "./art.js";
 import { ITEMS, NIGHT_SHIELD, itemName } from "./items.js";
+import { compact } from "./screen.js";
 
 const STEP_MS = 180; // docs/giao-dien-van.md: mỗi bước cách nhau 180 ms
 const GHOST_STEP_MS = STEP_MS / 2; // linh hồn đi nhanh gấp đôi
@@ -85,7 +86,11 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
   countdown.append(node("small", "", "Sắp đến lượt bạn"), countTitle, countNumber);
   const death = node("div", "death");
   death.append(node("strong", "", "Bạn đã bị loại"), node("span", "", "Linh hồn bạn ở lại theo dõi đến hết ván."));
-  const loading = node("div", "loading", "Đang thắp lửa trại…");
+  const loading = node("div", "loading");
+  const loadingText = node("p");
+  const retry = node("button", "", "Thử tải lại");
+  retry.type = "button";
+  loading.append(loadingText, retry);
   const interact = node("button", "interact");
   interact.type = "button";
   const interactText = node("span");
@@ -115,6 +120,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
   let gameKey = ""; // đổi khi sang ván mới
   let round = 1;
   let ready = false;
+  let broken = false; // có ảnh tải lỗi
   let owners = new Map(); // mã nhà → người nhận
   let homeId = null;
   let explored = new Set();
@@ -209,12 +215,23 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     heard = wolfHeard = deadHeard = 0;
     resetFog();
     death.hidden = true;
-    ready = false;
-    const wanted = gameKey;
-    Promise.all([loadArt(ids.length), loadVillageArt()]).then(() => {
-      if (wanted === gameKey) ready = true;
-    });
+    loadScene();
   }
+
+  // Thiếu ảnh nào thì báo lỗi kèm nút tải lại; bảng bên vẫn chơi được.
+  function loadScene() {
+    const wanted = gameKey;
+    ready = broken = false;
+    Promise.all([loadArt(actors.size), loadVillageArt()]).then(
+      () => {
+        if (wanted === gameKey) ready = true;
+      },
+      () => {
+        if (wanted === gameKey) broken = true;
+      },
+    );
+  }
+  retry.addEventListener("click", loadScene);
 
   // Phủ sương kín cả vùng vẽ của làng, chỉ chừa quảng trường.
   function resetFog() {
@@ -477,7 +494,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
 
   function cameraTarget(width, height) {
     const { right, bottom } = insets();
-    const small = width < 760;
+    const small = compact();
     const base = small ? 0.56 : 0.86;
     const focus = { x: (width - right) / 2, y: (height - bottom) / 2 };
     // Quảng trường: vừa đủ khung để thấy cả vòng người họp.
@@ -754,7 +771,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
   }
 
   function drawNames(now, width, height) {
-    const small = width < 760;
+    const small = compact();
     const placed = [];
     hits = [];
     drawn = { labels: [], signs: [], bubbles: [], items: [] };
@@ -781,9 +798,12 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     g.textBaseline = "middle";
     const picked = { fill: "rgba(70,16,12,.94)", line: "#e2563f", text: "#ffe3d8", weight: 2 };
     const chosen = targets();
-    // Biển ghim ở mép không được che dòng gợi ý.
-    if (mode === "overview" && !hint.hidden) {
-      placed.push({ x: hint.offsetLeft, y: hint.offsetTop, w: hint.offsetWidth, h: hint.offsetHeight });
+    // Biển và tên né dòng gợi ý và nút F, để không bị hai lớp chữ này che.
+    if (!hint.hidden) placed.push({ x: hint.offsetLeft, y: hint.offsetTop, w: hint.offsetWidth, h: hint.offsetHeight });
+    if (!interact.hidden) {
+      // Nút F canh giữa bằng translateX(-50%) nên mép trái lệch nửa bề rộng.
+      const { offsetLeft, offsetTop, offsetWidth: w, offsetHeight: h } = interact;
+      placed.push({ x: offsetLeft - w / 2, y: offsetTop, w, h });
     }
     // Biển tên cửa không được đè lên hình Sói.
     for (const actor of actors.values()) {
@@ -896,7 +916,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
       const { right, bottom } = insets();
       const away = (tile) => {
         const p = screen(iso(tile.x, tile.y));
-        return p.x < 30 || p.x > width - right - 30 || p.y < (width < 760 ? 170 : 90) || p.y > height - bottom - 30;
+        return p.x < 30 || p.x > width - right - 30 || p.y < (compact() ? 170 : 90) || p.y > height - bottom - 30;
       };
       const home = layout.houseById.get(homeId);
       if (phase() === "night_housing" && home) {
@@ -945,7 +965,12 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
       camera.focus = target.focus;
     }
     loading.hidden = ready;
-    if (!ready) return;
+    if (!ready) {
+      retry.hidden = !broken;
+      const status = broken ? "Không tải được hình của làng. Bảng bên vẫn dùng được." : "Đang thắp lửa trại…";
+      if (loadingText.textContent !== status) loadingText.textContent = status;
+      return;
+    }
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
       canvas.width = Math.round(width * ratio);
@@ -1028,12 +1053,12 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     if (dawn()) return "Trời sáng. Mọi người lần lượt ra quảng trường, xem ai vắng mặt.";
     if (isNight() && targets().size) {
       return phase() === "night_wolf"
-        ? "Đàn Sói họp bên đống lửa. Bàn ở Chat Sói, bấm tên trên cửa nhà để cắn."
-        : "Đến lượt bạn: bấm tên trên cửa nhà hoặc dùng ô chọn. Kéo để xem quanh làng.";
+        ? "Đàn Sói họp bên đống lửa. Bàn ở Chat Sói; bấm tên trên cửa nhà là gửi phiếu cắn ngay."
+        : "Đến lượt bạn: bấm tên trên cửa nhà để chọn, rồi bấm nút kỹ năng. Kéo để xem quanh làng.";
     }
     if (isNight()) return "Cả làng đang ngủ.";
     if (iAmDead()) return "Bạn đang theo dõi ván.";
-    return phase() === "day_vote" ? "Cả làng ở quảng trường. Bấm vào người bạn muốn loại." : "Cả làng ở quảng trường để bàn bạc.";
+    return phase() === "day_vote" ? "Bấm vào người bạn muốn loại là gửi phiếu ngay." : "Cả làng ở quảng trường để bàn bạc.";
   }
 
   // Cổ vật đang giữ; ban đêm là khiên còn hiệu lực (chỉ chủ khiên nhận `night_shield`).
@@ -1079,6 +1104,11 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
         const home = layout.houseById.get(homeId);
         if (firstHome && home) clearMist(home.x, home.y + 1, 0.8);
         if (village.houses) owners = new Map(village.houses.filter((h) => h.owner_id).map((h) => [h.id, h.owner_id]));
+        // Lượt kỹ năng không gửi `houses` (vd vừa vào lại): ai đang ở toạ độ cửa là chủ căn đó.
+        for (const [id, at] of Object.entries(village.positions ?? {})) {
+          const door = layout.doors.get(key(at.x, at.y));
+          if (door) owners.set(door.id, id);
+        }
       }
       playEffect(next.view.effect, fresh);
       placeActors(fresh || redrawn);

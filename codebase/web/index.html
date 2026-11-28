@@ -9,6 +9,7 @@
   <link rel="icon" href="data:,">
 </head>
 <body>
+  <div id="backdrop"></div>
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true"></span> Ma Sói</div>
     <div id="connection" class="connection" data-status="waiting" role="status">Đang kết nối</div>
@@ -49,7 +50,7 @@
         <button class="quiet leave" type="button">Rời phòng</button>
       </div>
       <div class="lobby-grid">
-        <div class="panel"><h2>Người chơi <span id="seat-count" class="small"></span></h2><ul id="members" class="members"></ul></div>
+        <div class="panel lobby-members"><h2>Người chơi <span id="seat-count" class="small"></span></h2><ul id="members" class="members"></ul></div>
         <div class="panel lobby-controls">
           <button id="copy-code" type="button">Sao chép mã phòng</button>
           <label id="lobby-seat-label" for="lobby-seats" hidden>Số ghế trong phòng</label>
@@ -70,6 +71,12 @@
           <p id="bot-count" class="muted"></p>
           <button id="start" class="primary" type="button" data-connection hidden>Bắt đầu</button>
         </div>
+        <div class="panel lobby-lineup">
+          <h2>Vai trong ván</h2>
+          <p id="lobby-lineup-total" class="muted small"></p>
+          <ul id="lobby-lineup" class="lineup-grid"></ul>
+          <p class="muted small">Phe Tình Nhân chỉ xuất hiện khi Thần Tình Yêu ghép đôi.</p>
+        </div>
       </div>
     </section>
 
@@ -87,12 +94,18 @@
             <div id="action-list" class="action-list"></div>
             <p id="action-status" class="muted small" role="status"></p>
             <details class="round-help">
+              <summary>Các vai trong ván</summary>
+              <p id="lineup-total" class="small"></p>
+              <ul id="lineup-list" class="lineup-list"></ul>
+              <p class="small">Phe Tình Nhân chỉ xuất hiện khi Thần Tình Yêu ghép đôi.</p>
+            </details>
+            <details class="round-help">
               <summary>Cách chơi</summary>
               <p><strong>Đi lại:</strong> phím mũi tên / WASD, hoặc bấm lên mặt đất. Bấm <strong>F</strong> để vào nhà hoặc nhặt đồ.</p>
               <p><strong>Tối đến:</strong> mỗi người có 15 giây để vào một căn nhà. Đứng ở ô ngay trước cửa rồi bấm F; nhà đã có chủ thì F mờ đi.</p>
-              <p><strong>Ban đêm:</strong> đàn Sói họp bên đống lửa, bàn ở Chat Sói và bấm tên trên cửa nhà để cắn. Kết quả cắn chỉ được tính sau khi các vai dùng kỹ năng. Đến lượt của bạn, chọn mục tiêu và bấm nút tương ứng.</p>
+              <p><strong>Ban đêm:</strong> đàn Sói họp bên đống lửa, bàn ở Chat Sói; bấm tên trên cửa nhà là gửi phiếu cắn ngay. Kết quả cắn chỉ được tính sau khi các vai dùng kỹ năng. Đến lượt của bạn, chọn mục tiêu và bấm nút tương ứng.</p>
               <p><strong>Ngày chẵn:</strong> sau khi tập trung có 30 giây tìm cổ vật. <strong>Gươm Excalibur</strong>: phiếu của bạn tính gấp đôi trong ngày. <strong>Khiên Pridwen</strong>: cứu bạn nếu bị vote loại; còn khiên sau lượt vote thì chặn cú cắn và bình độc đêm kế tiếp.</p>
-              <p><strong>Bỏ phiếu:</strong> người nhiều phiếu nhất bị ném vào đống lửa. Hòa phiếu thì không ai bị loại.</p>
+              <p><strong>Bỏ phiếu:</strong> bấm vào một người trên bản đồ là gửi phiếu ngay, hoặc chọn trong ô rồi bấm nút. Đổi được cho tới khi phiếu khóa (mọi người đã bỏ phiếu hoặc hết giờ). Người nhiều phiếu nhất bị ném vào đống lửa; hòa phiếu thì không ai bị loại.</p>
             </details>
           </section>
           <div class="panel personal">

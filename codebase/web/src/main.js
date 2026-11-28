@@ -4,11 +4,18 @@ import "@fontsource/cormorant-garamond/600.css";
 import "@fontsource/cormorant-garamond/700.css";
 import "./styles.css";
 import "./theme.css";
+import "./backdrop.css";
 import { portraitUrl } from "./sprites.js";
 import { createVillage } from "./village.js";
 import { ITEMS, NIGHT_SHIELD } from "./items.js";
+import { lineup, ROLE_ORDER } from "./lineup.js";
+import { createBackdrop } from "./backdrop.js";
+import { SCENES } from "./backdrop-scenes.js";
+import { compact } from "./screen.js";
 
 const $ = (id) => document.getElementById(id);
+// Nền tranh đổi cảnh mỗi 2 giây ở trang đầu, phòng chờ và kết quả; tắt khi đang chơi.
+const backdrop = createBackdrop($("backdrop"), SCENES, { interval: 2000 });
 const screens = ["home", "lobby", "game", "result"];
 const endpoint = import.meta.env.VITE_WS_URL ||
   (location.protocol === "https:" ? "wss://" : "ws://") + location.hostname + ":8000/ws";
@@ -30,11 +37,13 @@ const roleIcons = {
   dan: "🌾", soi_thuong: "🐺", soi_con: "🐾", bao_ve: "🛡️", tien_tri: "🔮",
   tien_tri_tap_su: "🕯️", phu_thuy: "🧪", tho_san: "🏹", than_tinh_yeu: "💘",
 };
+// Phe gốc của vai (phe Tình Nhân chỉ có sau khi ghép đôi).
+const baseFaction = (role) => (role.startsWith("soi") ? "soi" : "dan");
 // Chia bài đếm ngầm từ `started_at`, chạy song song với 15 giây về nhà và không hiện đồng hồ:
-// 10 giây thì tráo bài, 3 giây sau lật lá vai, lá bài nằm trên màn hình thêm một lúc rồi tắt.
-const DEAL_SHUFFLE_MS = 10000;
+// giây 6 tráo bài, 3 giây sau lật lá vai; lá vai và danh sách vai nằm trên màn hình tới giây 17,5.
+const DEAL_SHUFFLE_MS = 6000;
 const DEAL_FLIP_MS = 3000;
-const DEAL_SHOW_MS = 4500;
+const DEAL_SHOW_MS = 8500;
 const actionCopy = {
   pair: ["Ghép hai người", "Hai người được chọn biết vai của nhau và chuyển sang phe Tình Nhân."],
   protect: ["Bảo vệ người này", "Chặn cú cắn của Sói lên mục tiêu trong đêm nay. Bình độc vẫn có tác dụng."],
@@ -85,6 +94,7 @@ let rejoining = false;
 let deathNoticeFor = null;
 let ghostNoticeFor = null;
 let dealShown = "";
+let lineupSignature = "";
 let shownOutcome = "";
 let splashTimer;
 const outcomes = {
@@ -107,7 +117,7 @@ const village = createVillage($("stage"), {
   insets() {
     const side = document.querySelector(".game-side");
     if ($("game").classList.contains("hud-closed")) return { right: 0, bottom: 0 };
-    return window.innerWidth < 760
+    return compact()
       ? { right: 0, bottom: side.offsetHeight }
       : { right: side.offsetWidth + 12, bottom: 0 };
   },
@@ -125,7 +135,8 @@ deal.setAttribute("aria-live", "polite");
 deal.innerHTML = '<div class="deal-deck">' + '<span class="deal-card"></span>'.repeat(6) + "</div>" +
   '<div class="role-card"><div class="role-card-inner"><div class="role-face role-back"></div>' +
   '<div class="role-face role-front"><span class="role-icon"></span><strong class="role-name"></strong>' +
-  '<small class="role-faction"></small></div></div></div><p class="deal-caption"></p>';
+  '<small class="role-faction"></small></div></div></div><p class="deal-caption"></p>' +
+  '<div class="deal-lineup"><p class="deal-lineup-title"></p><ul class="lineup-grid"></ul></div>';
 $("stage").appendChild(deal);
 
 function loadSession(storage) {
@@ -173,6 +184,7 @@ function showScreen(screen) {
   if (display === screen) return;
   for (const name of screens) $(name).hidden = name !== screen;
   display = screen;
+  backdrop.setScreen(screen);
   const title = $(screen).querySelector("h1");
   title.tabIndex = -1;
   title.focus({ preventScroll: true });
@@ -386,8 +398,11 @@ function renderTimers() {
     savingTimers = false;
     for (const [key, id] of Object.entries(timerFields)) $(id).value = saved[key];
   }
-  summary.textContent = "Thảo luận " + saved.discussion_seconds + " giây · Bỏ phiếu " +
-    saved.vote_seconds + " giây · Mỗi lượt đêm " + saved.night_seconds + " giây";
+  // Mỗi mục không bị ngắt giữa chừng: chỉ xuống dòng sau dấu chấm giữa.
+  summary.textContent = [["Thảo luận", saved.discussion_seconds], ["Bỏ phiếu", saved.vote_seconds],
+    ["Mỗi lượt đêm", saved.night_seconds]]
+    .map(([name, seconds]) => (name + " " + seconds + " giây").replaceAll(" ", " "))
+    .join(" · ");
   updateTimerControls();
 }
 
@@ -422,6 +437,10 @@ function renderLobby() {
     : "Phòng đã đủ người.";
   $("start").hidden = !lobby.can_start;
   renderTimers();
+  // Ván đủ số ghế này sẽ có những vai nào: đổi theo số ghế chủ phòng chọn.
+  const upcoming = lineupOf(lobby.seats);
+  $("lobby-lineup-total").textContent = upcoming.summary;
+  $("lobby-lineup").replaceChildren(...upcoming.cards());
   showScreen("lobby");
 }
 
@@ -514,6 +533,56 @@ function renderDeal() {
   }
 }
 
+// Danh sách mọi vai của ván đủ `seats` ghế: vai không có trong ván xếp cuối và mờ đi, `mine` được tô sáng.
+// `cards` là thẻ gọn (lúc chia bài, phòng chờ); `rows` kèm mô tả (bảng bên trong ván).
+function lineupOf(seats, mine = "") {
+  const counts = lineup(seats);
+  const wolves = counts.soi_thuong + counts.soi_con;
+  const ordered = [...ROLE_ORDER].sort((a, b) => !counts[a] - !counts[b]);
+  const item = (role, ...children) => {
+    const li = element("li");
+    li.dataset.role = role;
+    li.dataset.faction = baseFaction(role);
+    li.dataset.count = counts[role];
+    li.dataset.mine = String(role === mine);
+    li.append(...children);
+    return li;
+  };
+  const icon = (role) => {
+    const node = element("span", roleIcons[role], "lineup-icon");
+    node.setAttribute("aria-hidden", "true");
+    return node;
+  };
+  const amount = (role) => element("b", counts[role] ? "×" + counts[role] : "không có", "lineup-count");
+  return {
+    summary: seats + " người · " + wolves + " Sói · " + (seats - wolves) + " phe Dân",
+    cards: () => ordered.map((role) => item(role, icon(role), element("span", roleName(role)), amount(role))),
+    rows: () => ordered.map((role) => {
+      const head = element("div");
+      head.append(element("strong", roleName(role) + (role === mine ? " (bạn)" : "")), amount(role));
+      const body = element("div");
+      // Mô tả vai viết cho người giữ vai ("bạn"); với vai của người khác thì gọi tên vai.
+      const detail = role === mine ? roles[role][1] : roles[role][1].replace("bạn", roleName(role));
+      body.append(head, element("p", detail, "small"));
+      return item(role, icon(role), body);
+    }),
+  };
+}
+
+// Trong ván: số lượng lúc đầu ván (không trừ khi có người chết, tránh lộ vai của họ).
+// Vai của mình chỉ được tô sáng sau khi lật lá.
+function renderLineup(view, dealt) {
+  const seats = view.players.length;
+  const mine = dealt ? view.role : "";
+  if (lineupSignature === seats + ":" + mine) return;
+  lineupSignature = seats + ":" + mine;
+  const current = lineupOf(seats, mine);
+  deal.querySelector(".deal-lineup-title").textContent = "Các vai trong ván: " + current.summary;
+  $("lineup-total").textContent = "Lúc đầu ván: " + current.summary + ".";
+  deal.querySelector(".lineup-grid").replaceChildren(...current.cards());
+  $("lineup-list").replaceChildren(...current.rows());
+}
+
 function renderGame() {
   const view = match.view;
   // Lượt ghép đôi cũng là đêm: tiêu đề chung để không lộ lượt của vai nào.
@@ -558,6 +627,7 @@ function renderGame() {
   }
   $("private-info").textContent = info.join(" · ");
   $("private-info").hidden = !info.length || !dealt;
+  renderLineup(view, dealt);
   showScreen("game");
   updateClock();
   renderActionsAndChat();
@@ -637,28 +707,41 @@ function actionGuide(view, actions) {
   if (actions.some((action) => action.type === "vote")) {
     return view.phase === "night_wolf"
       ? "Đến lượt phe Sói. Kết quả cú cắn sẽ được xử lý sau khi các vai khác hành động."
-      : "Đã hết giờ bàn bạc. Chọn mục tiêu và xác nhận phiếu trước khi hết giờ.";
+      : "Bấm người trên bản đồ là gửi phiếu ngay, đổi được tới khi phiếu khóa.";
   }
   if (actions.length) return "Chọn mục tiêu bên dưới rồi bấm nút kỹ năng. Mỗi kỹ năng chỉ hiện ở đúng lượt.";
   if (view.phase === "day_discussion") return "Bàn bạc trong chat chung hoặc chat riêng. Lượt bỏ phiếu sẽ mở khi hết giờ.";
   return "Chưa đến lượt của bạn. Đồng hồ đang đếm đến sáng, trừ khi đến lượt kỹ năng của bạn.";
 }
 
-// Bấm tên phòng hoặc nhân vật trên bản đồ: điền vào ô chọn; chỉ có một kỹ năng thì gửi luôn.
+// Bấm tên cửa nhà hoặc nhân vật trên bản đồ: điền vào ô chọn. Phiếu bầu gửi luôn;
+// kỹ năng (bình, soi, bảo vệ, ghim, ghép đôi) phải bấm nút để xác nhận.
 function pickTarget(playerId) {
   const forms = [...$("action-list").querySelectorAll("form")];
-  for (const form of forms) {
+  const filled = forms.filter((form) => {
     const selects = [...form.querySelectorAll("select")];
     const select = selects.length > 1 ? selects.find((item) => !item.value) : selects[0];
-    if (select && [...select.options].some((item) => item.value === playerId)) select.value = playerId;
-  }
-  if (forms.length === 1 && [...forms[0].querySelectorAll("select")].every((item) => item.value)) {
+    if (!select || ![...select.options].some((item) => item.value === playerId)) return false;
+    select.value = playerId;
+    return true;
+  });
+  if (!filled.length) return;
+  if (forms.length === 1 && forms[0].dataset.kind === "vote") {
     forms[0].requestSubmit();
+    return;
   }
+  // Bảng đang ẩn thì mở lại để thấy nút xác nhận.
+  if ($("game").classList.contains("hud-closed")) $("hud-toggle").click();
+  const complete = filled.every((form) => [...form.querySelectorAll("select")].every((item) => item.value));
+  const buttons = filled.map((form) => "“" + form.querySelector("button").textContent + "”").join(" hoặc ");
+  $("action-status").textContent = "Đã chọn " + nameOf(playerId) + ". " +
+    (complete ? "Bấm " + buttons + " để xác nhận." : "Chọn thêm một người nữa.");
+  filled[0].querySelector("button").scrollIntoView({ block: "nearest" });
 }
 
 function actionForm(option) {
   const form = element("form");
+  form.dataset.kind = option.type;
   const [name, description] = actionDescription(option.type);
   form.appendChild(element("p", description, "muted small"));
   const count = option.target_count || 1;
@@ -833,7 +916,7 @@ function resetRoom({ keepRecent = false } = {}) {
   village.reset();
   outbox = [];
   match = room = lobby = deathNoticeFor = ghostNoticeFor = null;
-  dealShown = "";
+  dealShown = lineupSignature = "";
   deal.hidden = true;
   awaitingAction = rejoining = false;
   chatChannel = "public";
