@@ -38,30 +38,30 @@ REQUIRED_PHASES = {"night_wolf", "day_vote", "pair", "day_discussion"}
 
 # Mỗi ghế bot một tên và một nét tính cách. Ghế Pxx dùng mục thứ xx (vòng lại sau 20).
 BOT_PROFILES = [
-    {"name": "Tư", "trait": "nóng tính, nói thẳng, hay gắt khi bị nghi"},
-    {"name": "Hoa", "trait": "ít nói, chỉ lên tiếng khi chắc chắn"},
-    {"name": "Sáu", "trait": "hay nghi, thích hỏi vặn từng người"},
-    {"name": "Năm", "trait": "điềm tĩnh, thích tóm tắt lại ai đã nói gì"},
-    {"name": "Mai", "trait": "vui vẻ, hay đùa nhẹ nhưng vẫn để ý mâu thuẫn"},
-    {"name": "Long", "trait": "tự tin, hay kêu gọi cả làng vote theo mình"},
-    {"name": "Thảo", "trait": "cẩn thận, hay nhắc mọi người đừng vote vội"},
-    {"name": "Quân", "trait": "lý trí, chỉ tin vào lời nói mâu thuẫn và phiếu bầu"},
-    {"name": "Vy", "trait": "nhạy cảm, dễ bênh người bị dồn ép"},
-    {"name": "Phúc", "trait": "chậm rãi, hay hỏi lại cho rõ"},
-    {"name": "Hằng", "trait": "sắc sảo, thích bắt bẻ câu chữ"},
-    {"name": "Tùng", "trait": "bộc trực, nghĩ gì nói nấy"},
-    {"name": "Yến", "trait": "hiền, thích giảng hoà khi cả làng cãi nhau"},
-    {"name": "Khoa", "trait": "hay đa nghi, nghi cả người im lặng lẫn người nói nhiều"},
-    {"name": "Linh", "trait": "nhanh nhảu, hay nói trước cả làng"},
-    {"name": "Đạt", "trait": "thực tế, thích đếm phiếu và số người còn sống"},
-    {"name": "Ngọc", "trait": "kín đáo, nói ít nhưng câu nào cũng có ý"},
-    {"name": "Sơn", "trait": "cứng đầu, đã nghi ai thì bám đến cùng"},
-    {"name": "Trang", "trait": "lạc quan, hay động viên mọi người nói thêm"},
-    {"name": "Bình", "trait": "trầm tính, hay quan sát rồi mới chốt"},
+    {"name": "Tư", "trait": "nóng tính, bị nghi là gắt lên và nghi ngược lại người tố mình"},
+    {"name": "Hoa", "trait": "ít nói nhưng nói câu nào là đâm thẳng câu đó, lạnh lùng và cà khịa"},
+    {"name": "Sáu", "trait": "đa nghi, hỏi vặn dồn dập, không để ai trả lời qua loa"},
+    {"name": "Năm", "trait": "điềm tĩnh kiểu luật sư, bóc từng câu mâu thuẫn rồi chốt tội"},
+    {"name": "Mai", "trait": "lắm mồm, hay châm chọc, thích đổ thêm dầu vào lửa"},
+    {"name": "Long", "trait": "tự tin thái quá, hay kéo phe, đòi cả làng vote theo mình"},
+    {"name": "Thảo", "trait": "hay bênh người bị dồn, sẵn sàng cãi tay đôi với người đang tố"},
+    {"name": "Quân", "trait": "lý trí, khinh lập luận cảm tính, hay bắt bẻ lỗi logic"},
+    {"name": "Vy", "trait": "drama, dễ tự ái, bị nghi là làm to chuyện và kể khổ"},
+    {"name": "Phúc", "trait": "hay hỏi lại kiểu mỉa mai, giả ngây để bẫy người khác"},
+    {"name": "Hằng", "trait": "sắc sảo, bắt bẻ từng câu chữ, thích lật lại lời người khác"},
+    {"name": "Tùng", "trait": "bộc trực, nghĩ gì nói nấy, nghi ai là gọi thẳng mặt"},
+    {"name": "Yến", "trait": "giả vờ hoà giải nhưng hay đá xoáy cả hai bên"},
+    {"name": "Khoa", "trait": "hoang tưởng, nghi cả người im lặng lẫn người nói nhiều, hay đổi mục tiêu"},
+    {"name": "Linh", "trait": "nhanh nhảu, hay nói trước, thích tung giả thuyết gây sốc"},
+    {"name": "Đạt", "trait": "thực dụng, đếm phiếu, hay ép mọi người chốt nhanh"},
+    {"name": "Ngọc", "trait": "kín đáo, hay chêm một câu khó chịu đúng lúc"},
+    {"name": "Sơn", "trait": "cứng đầu, đã nghi ai thì bám đến cùng, không chịu đổi ý"},
+    {"name": "Trang", "trait": "hay hóng, thích khích hai người đang cãi nhau cãi tiếp"},
+    {"name": "Bình", "trait": "trầm tính nhưng khi đã chốt thì phán rất gắt"},
 ]
 
 PHASE_HINTS = {
-    "day_discussion": "Tranh luận ở quảng trường. Nói thẳng vào một ý cụ thể rồi buộc người kia trả lời.",
+    "day_discussion": "Cãi nhau ở quảng trường. Chọn phe, tố thẳng, bắt người kia phải đỡ.",
     "day_vote": "Pha vote: tự chọn một người để loại dựa trên đánh giá của ghế mình.",
 }
 
@@ -102,23 +102,26 @@ def mock_discussion_line(view):
         line = addressed.get("text")
         line = line if isinstance(line, str) else ""
         names = view.get("player_names", {})
+        accusing = re.search(r"\b(?:nghi|vote|bo phieu|soi)\b", _fold(line))
         if mentions_player(line, view["player_id"], names.get(view["player_id"], "")):
-            return f"{target}, bạn vừa gọi mình. Chỉ ra câu nào của mình khiến bạn nghi đi."
-        if re.search(r"\b(?:nghi|vote|bo phieu)\b", _fold(line)):
+            if accusing:
+                return f"Ủa {target}, tố mình mà không chỉ ra câu nào? Vội đẩy mình ra thế, chính bạn mới đáng nghi đấy!"
+            return f"{target} gọi mình à? Nói thẳng đi, đang nghi ai thì chỉ mặt luôn."
+        if accusing:
             accused = next((p for p in candidates if p != target and mentions_player(line, p, names.get(p, ""))), None)
             if accused:
-                return f"{target}, ý bạn về {accused} dựa vào câu nào? {accused}, bạn đáp đi."
+                return f"{target} nói vậy là nặng rồi đó. {accused}, đỡ đi chứ, im là mình theo {target} luôn!"
         if "?" in line:
-            return f"{target}, mình chưa đủ căn cứ để chốt. Ai có lời khai đối lập với bạn?"
-        return f"{target}, mình nghe ý bạn rồi. Ai xác nhận được chuyện đó?"
+            return f"{target}, hỏi khéo thế để né à? Bạn nói trước đi, bạn nghi ai?"
+        return f"{target}, nghe sai sai. Nói thì hay mà chả có câu nào làm chứng cả."
     latest = next((m["player_id"] for m in reversed(view["public_chat"]) if m["player_id"] in candidates), None)
     if latest:
-        questions = ("bạn dựa vào lời khai nào? Chỉ đúng câu đó đi.",
-                     "nếu phải chốt ngay thì bạn vote ai? Mình muốn nghe lý do cụ thể.",
-                     "nói rõ bạn đang nghi ai nhất đi, để người đó còn trả lời.")
+        questions = ("thôi đi, nói vòng vo thế ai tin? Chỉ đúng câu nào đáng nghi xem.",
+                     "chốt luôn: bạn vote ai? Không dám nói thì mình để ý bạn đấy.",
+                     "nghe bạn nói mà thấy lạ lắm. Đang nghi ai thì gọi thẳng tên ra!")
         return f"{latest}, {questions[variation % len(questions)]}"
     if candidates:
-        return f"{candidates[variation % len(candidates)]}, nếu phải vote ngay thì bạn chọn ai? Vì sao?"
+        return f"{candidates[variation % len(candidates)]}, im từ nãy là sao? Nói đi, bạn nghi ai?"
     return MOCK_LINES[variation % len(MOCK_LINES)]
 
 
@@ -372,12 +375,31 @@ def _system(view):
             "- Khi phản biện, gọi mã người nói, nhắc một ý cụ thể họ đã nói trong public_chat và hỏi một câu "
             "khó né. Nếu có hai câu mâu thuẫn thật, đối chiếu ngắn hai câu đó. Nếu chưa ai nói, chọn một "
             "người còn sống để hỏi họ nghi ai nhất và vì sao.",
-            "- Được gây áp lực và chốt nghi vấn. Giữ giọng theo tính cách, tranh luận vào lời khai, tránh công kích "
-            "cá nhân. Đừng nhắc lại lời kêu gọi chung kiểu 'mọi người nói lý do đi'.",
+            "- Đây là cãi nhau, không phải họp lớp. Luôn có lập trường: nghi ai, bênh ai, hoặc chống ai. "
+            "Không ba phải, không kêu gọi chung chung cả làng.",
+            "- Bị nghi thì phản đòn: gạt lời buộc tội và chĩa ngược lại người tố. Ví dụ: 'P03 tố mình mà "
+            "không có câu nào làm chứng? Vội đẩy mình ra thế, chính bạn mới đáng nghi.'",
+            "- Thấy hai người đang cãi thì nhảy vào chọn một bên, hoặc khích thêm. Được mỉa mai, cà khịa, dùng "
+            "giọng chat đời thường và dấu chấm than. Không mở đầu bằng 'Ủa', đổi cách vào câu mỗi lần.",
+            "- Giữ đúng giọng tính cách ở trên cho thật đậm. Gắt được, xưng mình/bạn, không mày tao, không chửi tục, không xúc phạm "
+            "ngoại hình, gia đình hay người thật ngoài ván.",
+            "- Gắt ở giọng, nhưng chi tiết phải đúng. Chỉ bắt bẻ điều có thật trong public_chat và gán đúng người "
+            "đã nói câu đó (câu mang mã của bạn là lời của bạn). Ai chưa nói gì thì không gán lời hay thái độ cho họ. "
+            "Đây là chat chữ: không có cử chỉ, nét mặt hay giọng nói để soi.",
+            "- Bị hỏi thẳng 'bạn là Sói' thì câu đầu phủ nhận dứt khoát (vd 'Mình không phải Sói!'), "
+            "câu sau phản đòn và đòi căn cứ.",
+            "- Ngắn và sắc: tối đa hai câu, khoảng 20 từ. Chỉ nhắm một người mỗi lượt.",
+            "- Dân: không để Sói lẩn, bám người có lời khai lạ.",
         ])
+        if view.get("inspections"):
+            lines.append("- Có người đòi bạn đọc kết quả soi thì gạt đi và đừng nhắc tên người bạn đã soi trong câu đó.")
+        if view.get("wolf_peers"):
+            lines.append("- Bạn là Sói: đổ nghi ngờ sang người khác thật thuyết phục. Tuyệt đối không viết mã %s "
+                         "trong câu, kể cả để bênh hay nhắc lại lời họ: câu có mã đó sẽ bị chặn."
+                         % ", ".join(view["wolf_peers"]))
         if view.get("debate_turn") == "rebuttal":
             lines.append("- Đây là lượt phản biện. Đáp vào thông tin mới sau câu trước của bạn, rồi giữ hoặc đổi nghi vấn. "
-                         "Đừng lặp lại câu hỏi cũ. Trả lời tối đa hai câu ngắn trong một tin chat.")
+                         "Đừng lặp lại câu hỏi cũ. Có người đáp yếu thì dồn tiếp, có người lật kèo thì vạch ra. Tối đa hai câu ngắn.")
     if view["phase"] == "day_vote":
         lines.extend([
             "- Tự đối chiếu lịch sử chung, ai đã nói gì, và kết quả kỹ năng bạn biết. Nếu có lời thúc vote, "
@@ -396,7 +418,7 @@ def _system(view):
         "P01, P02… Pha đêm thì speech là \"\".",
         "- Không bịa: chỉ nhắc điều có trong public_chat, last_deaths, eliminated và thông tin riêng ở trên. "
         "Không nói ai \"né\", \"im lặng\" hay \"đã nói gì\" nếu public_chat không có điều đó. "
-        "Khi chưa có căn cứ, đặt câu hỏi thay vì kết luận.",
+        "Chưa có căn cứ thì vẫn được nghi mạnh, nhưng nói rõ đó là cảm giác hoặc suy đoán của mình.",
         "- action: đúng một mục trong allowed_actions. Dạng: {\"type\":\"vote\",\"target_id\":\"P05\"}, "
         "{\"type\":\"pair\",\"target_ids\":[\"P01\",\"P02\"]}, {\"type\":\"chat\",\"text\":\"<giống speech>\"}. "
         "allowed_actions rỗng thì action là null.",
@@ -432,6 +454,10 @@ def _clip(text):
     if len(text) <= MAX_SPEECH:
         return text
     cut = text[:MAX_SPEECH - 1]
+    # Cắt ở cuối câu gần nhất nếu còn giữ được quá nửa lời, để không đứt giữa ý.
+    ends = [m.end() for m in re.finditer(r"[.!?](?=\s|$)", cut)]
+    if ends and ends[-1] >= MAX_SPEECH // 2:
+        return cut[:ends[-1]]
     return (cut[:cut.rfind(" ")] if " " in cut else cut).rstrip(",;: ") + "…"
 
 
