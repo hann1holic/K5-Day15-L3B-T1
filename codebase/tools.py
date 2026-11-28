@@ -48,6 +48,9 @@ def read_view(text: str):
     if "inspections" in view and (not isinstance(view["inspections"], list)
                                  or not all(isinstance(p, dict) for p in view["inspections"])):
         return None
+    if "player_names" in view and (not isinstance(view["player_names"], dict)
+                                   or not all(isinstance(name, str) for name in view["player_names"].values())):
+        return None
     return view
 
 
@@ -65,4 +68,6 @@ def legal_targets(view: dict, action_type: str) -> list:
                 allies.extend(option.get("ally_target_ids", []))
     if action_type == "vote":
         targets = [p for p in targets if p not in view.get("wolf_peers", []) or p in allies]
+        if view.get("phase") == "day_vote" and isinstance(view.get("partner"), dict):
+            targets = [p for p in targets if p != view["partner"].get("player_id")]
     return targets
