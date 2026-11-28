@@ -3,6 +3,7 @@
 import asyncio
 from collections import Counter
 import secrets
+import time
 from dataclasses import dataclass, field
 
 from .game_engine import GameEngine, deal_roles
@@ -95,6 +96,7 @@ class Room:
         self.bot_workers = set()
         self.turn_end = 0
         self.idle_task = None
+        self.started_at = None
 
     def join(self, name, connection):
         # A finished match whose results are already out (deadline cleared) accepts newcomers.
@@ -205,6 +207,8 @@ class Room:
         self.rng.shuffle(bot_names)
         self.names.update(zip(bot_ids, bot_names))
         self.engine = GameEngine(players, rng=self.rng, fixed_night=True)
+        # Giao diện tự đếm ngầm từ mốc này để tráo bài và lật lá vai.
+        self.started_at = int(time.time() * 1000)
         self.village = Village(self.rng, previous_item_tiles=self.previous_item_tiles) if self.village_enabled else None
         self.night_phase_id = self.night_deadline = self.prepare_deadline = None
         self.dawn = None
@@ -295,6 +299,9 @@ class Room:
         if self.village is not None and self.dawn is None:
             pack = view.get("wolf_pack", ()) if view["phase"] == "night_wolf" else ()
             view["village"] = self.village.view(member.player_id, view["phase"], pack)
+            if member.player_id in self.village.ghosts and view["phase"] != "finished":
+                # Linh hồn không theo luật nào của ván: chỉ còn đi lại khắp làng.
+                view["allowed_actions"] = [{"type": "move"}]
         if self.vote_scene is not None or view["phase"] in {
             "night_wait", "night_prepare", "night_housing", "day_arrival",
         }:
@@ -304,7 +311,11 @@ class Room:
             "type": "state", "code": self.code, "me": member.player_id,
             "names": self.names.copy(), "deadline": deadline, "phase_id": phase_id,
             "is_host": member is self.host, "acted": acted, "view": view, "reveal": reveal,
+            "started_at": self.started_at,
         }
+
+    def ghost_ids(self):
+        return set(self.village.ghosts) if self.village is not None else set()
 
 
 class Rooms:

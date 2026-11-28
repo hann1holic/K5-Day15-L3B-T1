@@ -53,6 +53,13 @@ vẽ và điều khiển, `src/art.js` vẽ nhà, Sói, lửa, cổ vật; tên 
   phòng, màn thắng / thua / hòa khi hết ván.
 - Chủ Khiên Pridwen còn hiệu lực qua đêm (`view.night_shield`) thấy huy hiệu khiên; người khác không thấy.
 - Phòng không bật làng (tạo từ máy khách khác) vẫn xem được: mọi người đứng ở quảng trường, không đi lại.
+- **Chia bài:** `state.started_at` là mốc bắt đầu ván (ms). Giao diện đếm ngầm, không hiện đồng hồ và chạy song song
+  với 15 giây về nhà: giây 10 tráo bài, giây 13 lật lá vai. Trước khi lật, bảng vai ghi "Đang chia bài…".
+- **Linh hồn:** người chết (bị cắn, bị vote, chết theo) không theo luật nào nữa. `view.village.ghost` là `true`,
+  `allowed_actions` chỉ còn `move`, bước cách nhau 90 ms (nhanh gấp đôi), đi được cả lúc cả làng họp hay ngủ.
+  Nhà của họ thành nhà hoang (`abandoned_houses`); người sống nào cũng vào được, vào rồi thì nhà có chủ mới. Chỉ người chết thấy vị trí các linh hồn (`ghosts`).
+- **Chat người chết:** người chết gửi `{"type":"dead_chat","text":...}` ở khung chat chung. Chỉ người chết nhận
+  `view.dead_chat` (mỗi dòng có `after` = số dòng chat chung trước nó) và thấy các dòng này mờ đi; người sống không thấy gì.
 
 ## Hình và phong cách
 

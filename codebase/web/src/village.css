@@ -30,3 +30,38 @@
 .death { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; gap: 8px; z-index: 20; color: #f4e4d8; background: linear-gradient(115deg, #0000 47%, #f3ece4 49%, #8f0d12 50%, #0000 53%), radial-gradient(circle, #3b0508e8, #0d0102f5); animation: slash .45s ease-out; }
 .death strong { font: 700 3rem "Cormorant Garamond", Georgia, serif; letter-spacing: .04em; text-shadow: 0 4px 24px #000; }
 @keyframes slash { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+
+/* Chia bài: tráo bộ bài rồi lật lá vai. Không chặn bấm hay đi lại trên bản đồ. */
+.deal { position: absolute; inset: 0; z-index: 15; display: grid; place-content: center; justify-items: center; gap: 14px; pointer-events: none; background: radial-gradient(circle, #05060a99 0, #05060a33 45%, #0000 70%); animation: deal-in .35s ease-out; }
+.deal[hidden] { display: none; }
+.deal-deck { position: relative; width: 120px; height: 172px; }
+.deal-card, .role-face { border-radius: 12px; border: 2px solid #d9a441; box-shadow: 0 10px 30px #000a; background: repeating-linear-gradient(45deg, #3a1d12 0 8px, #4a2617 8px 16px), #3a1d12; }
+.deal-card { position: absolute; inset: 0; }
+.deal[data-stage=shuffle] .deal-card { animation: shuffle 1s ease-in-out infinite; }
+.deal-card:nth-child(1) { animation-delay: 0s; }
+.deal-card:nth-child(2) { animation-delay: -.17s; }
+.deal-card:nth-child(3) { animation-delay: -.33s; }
+.deal-card:nth-child(4) { animation-delay: -.5s; }
+.deal-card:nth-child(5) { animation-delay: -.67s; }
+.deal-card:nth-child(6) { animation-delay: -.83s; }
+.role-card { display: none; width: 150px; height: 214px; perspective: 900px; }
+.deal[data-stage=reveal] .deal-deck { display: none; }
+.deal[data-stage=reveal] .role-card { display: block; }
+.role-card-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; animation: flip .8s ease-out forwards; }
+.role-face { position: absolute; inset: 0; backface-visibility: hidden; }
+.role-front { display: grid; place-content: center; justify-items: center; gap: 8px; padding: 12px; transform: rotateY(180deg); background: radial-gradient(circle at 50% 35%, #fff4d6, #e7d2a2 70%); color: #2a1a0e; text-align: center; }
+.role-icon { font-size: 3.4rem; line-height: 1; }
+.role-name { font: 700 1.6rem/1.1 "Cormorant Garamond", Georgia, serif; }
+.role-faction { font-size: .85rem; letter-spacing: .04em; text-transform: uppercase; color: #6b4a22; }
+.deal-caption { margin: 0; font: 700 1.3rem "Cormorant Garamond", Georgia, serif; color: #ffe3a8; text-shadow: 0 2px 10px #000; }
+@keyframes shuffle {
+  0%, 100% { transform: translateX(0) rotate(0); z-index: 1; }
+  25% { transform: translateX(-70px) rotate(-12deg); }
+  50% { transform: translateX(0) rotate(0); z-index: 6; }
+  75% { transform: translateX(70px) rotate(12deg); }
+}
+@keyframes flip { from { transform: rotateY(0) scale(.85); } 60% { transform: rotateY(200deg) scale(1.08); } to { transform: rotateY(180deg) scale(1); } }
+@keyframes deal-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Chat của người chết: chỉ người chết thấy, mờ đi để phân biệt với chat chung. */
+.chat-log li.dead-line { opacity: .5; font-style: italic; }

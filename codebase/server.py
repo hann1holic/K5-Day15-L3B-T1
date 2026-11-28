@@ -226,6 +226,11 @@ class GameServer:
     async def _human_action(self, room, member, message):
         engine = room.engine
         action = message.get("action")
+        if (engine is not None and engine.phase != "finished" and member.player_id is not None
+                and not engine.is_alive(member.player_id) and isinstance(action, dict)
+                and action.get("type") in {"move", "dead_chat"}):
+            await self._ghost_action(room, member, action)
+            return
         if room.village is not None and room.village.phase is not None:
             await self._village_action(room, member, action, message.get("phase_id", room.phase_id))
             return
@@ -252,6 +257,27 @@ class GameServer:
                 self._queue_debate_reply(room, member.player_id, action["text"])
             self._check_ready(room)
             await self._broadcast_action(room, member.player_id)
+
+    async def _ghost_action(self, room, member, action):
+        """The dead roam the village and talk among themselves; only the dead are told."""
+        if action["type"] == "dead_chat":
+            text = action.get("text")
+            if not isinstance(text, str) or len(text) > MAX_CHAT_LENGTH:
+                result = {"accepted": False, "reason": "invalid_text"}
+            else:
+                result = room.engine.dead_chat(member.player_id, text)
+        elif room.village is None:
+            result = {"accepted": False, "reason": "action_not_allowed"}
+        else:
+            now = asyncio.get_running_loop().time()
+            reason = room.village.ghost_move(member.player_id, action.get("dx"), action.get("dy"), now)
+            result = {"accepted": reason is None}
+            if reason is not None:
+                result["reason"] = reason
+        await send(member.connection, {"type": "action_result", **result})
+        if result["accepted"]:
+            dead = {pid for pid in room.names if not room.engine.is_alive(pid)}
+            await self._broadcast(room, dead)
 
     async def _village_action(self, room, member, action, phase_id):
         now = asyncio.get_running_loop().time()
@@ -367,6 +393,8 @@ class GameServer:
                     dawn_views = room.capture_dawn_views() if phase == "night_hunter" else None
                     before_vote = engine.view(next(iter(room.names))) if phase == "day_vote" else None
                     engine.advance()
+                    if room.village is not None:
+                        room.village.sync_ghosts(engine.living_ids())
                     if before_vote is not None:
                         if room.village is not None:
                             room.village.held.clear()

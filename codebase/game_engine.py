@@ -79,6 +79,7 @@ class GameEngine:
         self._public_chat = []
         self._private_chat = {player_id: [] for player_id in ids}
         self._wolf_chat = []
+        self._dead_chat = []
         self._votes = {}
         self._day_items = {}
         self._night_shields = set()
@@ -101,6 +102,19 @@ class GameEngine:
         if self.phase != "day_discussion":
             raise ValueError("Lucky Day items must be set before the day vote.")
         self._day_items = {pid: item for pid, item in items.items() if pid in self._alive}
+
+    def is_alive(self, player_id):
+        return player_id in self._alive
+
+    def dead_chat(self, player_id, text):
+        """A line only the dead can read. `after` is how many public lines came before it."""
+        if player_id not in self._players or player_id in self._alive or self.phase == "finished":
+            return self._reject("action_not_allowed")
+        if not isinstance(text, str) or not text.strip():
+            return self._reject("invalid_text")
+        self._dead_chat.append({"player_id": player_id, "text": text.strip(),
+                                "after": len(self._public_chat)})
+        return {"accepted": True, "phase": self.phase}
 
     def _role(self, player_id):
         if player_id == self._promoted_seer:
@@ -178,6 +192,8 @@ class GameEngine:
             }
         if player_id in self._night_shields:
             view["night_shield"] = True
+        if player_id not in self._alive:
+            view["dead_chat"] = [message.copy() for message in self._dead_chat]
         if self._factions[player_id] == "soi":
             view["wolf_peers"] = sorted(p for p in self._players
                                        if self._factions[p] == "soi" and p != player_id)

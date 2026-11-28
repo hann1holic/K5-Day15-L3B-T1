@@ -127,3 +127,15 @@ class LuckyDayTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DeadChatTest(unittest.TestCase):
+    def test_only_the_dead_write_and_read_dead_chat(self):
+        engine = make(["soi_thuong", "dan", "dan", "dan"])
+        living, dead = "P2", "P3"
+        engine._alive.discard(dead)
+        self.assertFalse(engine.dead_chat(living, "xin chào")["accepted"])
+        self.assertTrue(engine.dead_chat(dead, "  mình chết rồi  ")["accepted"])
+        self.assertNotIn("dead_chat", engine.view(living))
+        self.assertEqual(engine.view(dead)["dead_chat"], [{"player_id": dead, "text": "mình chết rồi", "after": 0}])
+        self.assertEqual(engine.allowed_actions(dead), [])

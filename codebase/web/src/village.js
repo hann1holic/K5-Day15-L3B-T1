@@ -10,6 +10,7 @@ import { drawFire, drawHouse, drawLoot, drawShieldBreak, drawWolf, houseRect, ic
 import { ITEMS, NIGHT_SHIELD, itemName } from "./items.js";
 
 const STEP_MS = 180; // docs/giao-dien-van.md: mỗi bước cách nhau 180 ms
+const GHOST_STEP_MS = STEP_MS / 2; // linh hồn đi nhanh gấp đôi
 const WALK = 1000 / STEP_MS; // ô mỗi giây
 const SIGHT = { x: 620, y: 420 }; // vùng sương tan quanh mình
 const FOG_SCALE = 12;
@@ -132,6 +133,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
   let played = new Set(); // hiệu ứng đã phát
   let heard = 0;
   let wolfHeard = 0;
+  let deadHeard = 0;
   let hits = []; // vùng bấm được của khung hình gần nhất
   let drawn = { labels: [], signs: [], bubbles: [], items: [] };
   let toastTimer;
@@ -148,6 +150,8 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
   const me = () => actors.get(match.me);
   const aliveOf = (actor) => view().players[actor.index].alive;
   const iAmDead = () => Boolean(view().you_died) || !aliveOf(me());
+  const ghostMe = () => Boolean(map()?.ghost); // linh hồn: đi khắp làng, không theo luật ván
+  const abandoned = () => new Set(map()?.abandoned_houses ?? []);
   const nameOf = (id) => match.names[id] ?? id;
   const targets = () => new Set(view().allowed_actions
     .filter((a) => !UNTARGETED.has(a.type)).flatMap((a) => a.target_ids ?? []));
@@ -202,7 +206,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     played = new Set();
     execution = breaking = null;
     camera = null;
-    heard = wolfHeard = 0;
+    heard = wolfHeard = deadHeard = 0;
     resetFog();
     death.hidden = true;
     ready = false;
@@ -234,9 +238,18 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     const around = view().players.filter((p) => p.alive).map((p) => p.player_id).sort();
     const ring = seats(layout, Math.max(1, around.length));
     const seatOf = (id) => ring[around.indexOf(id)] ?? { x: layout.bounds.max_x, y: layout.bounds.max_y };
+    const ghosts = new Set(map()?.ghosts ?? []);
     for (const actor of actors.values()) {
       actor.wolf = wolves.get(actor.id) ?? null;
       const at = map()?.positions?.[actor.id];
+      actor.ghost = ghosts.has(actor.id);
+      if (actor.ghost && at) {
+        // Linh hồn đứng đúng ô server báo, kể cả lúc cả làng họp ở quảng trường.
+        if (fresh || actor.hidden || actor.inside || gap(actor, at) > 4) place(actor, at);
+        else if (actor.id !== match.me) Object.assign(actor, { goal: { x: at.x, y: at.y }, route: [] });
+        Object.assign(actor, { hidden: false, inside: false, arrived: false });
+        continue;
+      }
       if (dawn()) {
         const here = Boolean(view().arrivals?.includes(actor.id));
         if (here && !actor.arrived) arrive(actor, seatOf(actor.id), fresh);
@@ -289,7 +302,9 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
   }
 
   function cameraMode() {
-    if (execution || breaking || dawn() || gathered()) return "square";
+    if (execution || breaking) return "square";
+    if (ghostMe() && allowed("move")) return "walk";
+    if (dawn() || gathered()) return "square";
     if (allowed("move")) return "walk";
     if (isNight() && targets().size) return "overview";
     if (!map() || iAmDead()) return "square";
@@ -323,7 +338,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
 
   function drive(now) {
     if (!allowed("move")) return;
-    if (now - lastStep >= STEP_MS) {
+    if (now - lastStep >= (ghostMe() ? GHOST_STEP_MS : STEP_MS)) {
       const move = nextStep();
       if (move && onAction({ type: "move", ...move })) {
         const step = { ...move, acked: false };
@@ -534,7 +549,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
       return;
     }
     g.save();
-    if (self && iAmDead()) {
+    if ((self && iAmDead()) || actor.ghost) {
       g.globalAlpha = 0.42;
       g.filter = "grayscale(1) brightness(1.35)";
     }
@@ -700,8 +715,8 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
 
   function drawFog(width, height, ratio) {
     worldTransform(ratio);
-    // Lúc phải chọn mục tiêu, sương mỏng đi để thấy hết cửa nhà.
-    g.globalAlpha = mode === "overview" ? 0.3 : 1;
+    // Lúc phải chọn mục tiêu, sương mỏng đi để thấy hết cửa nhà. Linh hồn nhìn xuyên sương.
+    g.globalAlpha = mode === "overview" ? 0.3 : ghostMe() ? 0.25 : 1;
     g.drawImage(fog, veil.x, veil.y, veil.w, veil.h);
     g.globalAlpha = 1;
     g.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -721,12 +736,16 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     const choosing = mode === "overview";
     const votes = Object.values(view().wolf_votes ?? {});
     const allies = new Set(view().allowed_actions.flatMap((a) => a.ally_target_ids ?? []));
+    const ruined = abandoned();
+    const ghost = ghostMe();
     return layout.houses.map((house) => {
       const owner = owners.get(house.id);
-      const mine = house.id === homeId && (!owner || owner === match.me);
-      if (!(housing || (choosing && owner) || (mine && !gathered() && !dawn()))) return null;
-      if (!choosing && !seen(house.x, house.y + 1)) return null;
-      let text = mine || owner === match.me ? "Nhà của bạn" : owner ? `Nhà ${nameOf(owner)}` : "Còn trống";
+      const empty = ruined.has(house.id);
+      const mine = !ghost && house.id === homeId && (!owner || owner === match.me);
+      // Linh hồn đi ngang thì đọc được biển nhà của người còn sống và nhà hoang.
+      if (!(housing || (choosing && owner) || (mine && !gathered() && !dawn()) || (ghost && (owner || empty)))) return null;
+      if (!choosing && !ghost && !seen(house.x, house.y + 1)) return null;
+      let text = empty && !owner ? "Nhà hoang" : mine || owner === match.me ? "Nhà của bạn" : owner ? `Nhà ${nameOf(owner)}` : "Còn trống";
       const count = votes.filter((target) => target === owner).length;
       if (choosing && allies.has(owner)) text += " · đồng đội";
       if (count) text += ` · ${count} phiếu`;
@@ -809,7 +828,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     g.font = `700 ${small ? 12 : 17}px ${NAME_FONT}`;
     const people = [...actors.values()].filter(visible).sort((a, b) => a.vx + a.vy - (b.vx + b.vy));
     for (const actor of people) {
-      if (actor.id !== match.me && mode !== "overview" && !seen(actor.vx, actor.vy)) continue;
+      if (actor.id !== match.me && mode !== "overview" && !ghostMe() && !seen(actor.vx, actor.vy)) continue;
       const feet = screen(iso(actor.vx, actor.vy));
       const wolf = actor.wolf || view().wolf_peers?.includes(actor.id);
       const text = ellipsis(g, (wolf ? "🐺 " : "") + nameOf(actor.id), small ? 62 : 130);
@@ -842,7 +861,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     // Đông người nói cùng lúc thì chỉ hiện vài câu mới nhất (đủ câu vẫn nằm trong khung chat).
     g.font = `400 ${small ? 12 : 14}px ${TEXT_FONT}`;
     const speaking = people
-      .filter((a) => a.say?.until >= now && (a.id === match.me || mode === "overview" || seen(a.vx, a.vy)))
+      .filter((a) => a.say?.until >= now && (a.id === match.me || mode === "overview" || ghostMe() || seen(a.vx, a.vy)))
       .map((actor) => ({ actor, feet: screen(iso(actor.vx, actor.vy)) }))
       .filter(({ feet }) => feet.x > 0 && feet.x < width && feet.y > 0 && feet.y < height)
       .sort((a, b) => b.actor.say.until - a.actor.say.until);
@@ -860,11 +879,11 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
       for (let other; (other = taken.find((o) => overlaps(o, box))); ) box.y = other.y - h - 4;
       if (box.y < ceiling) continue;
       drawn.bubbles.push({ id: actor.id, ...box });
-      g.fillStyle = actor.wolf ? "rgba(96,26,20,.96)" : "rgba(232,222,200,.96)";
+      g.fillStyle = actor.wolf ? "rgba(96,26,20,.96)" : actor.ghost ? "rgba(170,190,225,.55)" : "rgba(232,222,200,.96)";
       g.beginPath();
       g.roundRect(box.x, box.y, box.w, box.h, 8);
       g.fill();
-      g.fillStyle = actor.wolf ? "#ffe3d8" : "#231a12";
+      g.fillStyle = actor.wolf ? "#ffe3d8" : actor.ghost ? "#10141f" : "#231a12";
       rows.forEach((row, i) => g.fillText(row, box.x + box.w / 2, box.y + 14 + i * 18));
     }
   }
@@ -872,7 +891,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
   function drawOverlays(width, height) {
     const self = me();
     let goal = null;
-    if (mode === "walk") {
+    if (mode === "walk" && !ghostMe()) {
       // Mũi tên chỉ đường khi chỗ cần tới nằm ngoài phần bản đồ nhìn thấy.
       const { right, bottom } = insets();
       const away = (tile) => {
@@ -993,6 +1012,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
 
   function hintText() {
     if (execution) return `Dân làng ném ${nameOf(execution.victim)} vào đống lửa.`;
+    if (ghostMe()) return "Bạn là linh hồn: đi khắp làng nhanh gấp đôi, theo dõi mọi người đến hết ván. Chỉ người chết đọc được tin của bạn.";
     if (phase() === "night_housing") {
       if (!allowed("move")) return iAmDead() ? "Bạn đang theo dõi cả làng về nhà." : "Bạn đã vào nhà. Chờ đêm bắt đầu.";
       return owners.get(homeId) === match.me
@@ -1076,6 +1096,8 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
       heard = speak(next.view.public_chat, heard);
       const wolfChat = next.view.wolf_chat ?? [];
       wolfHeard = speak(wolfChat, Math.min(wolfHeard, wolfChat.length));
+      const deadChat = next.view.dead_chat ?? [];
+      deadHeard = speak(deadChat, Math.min(deadHeard, deadChat.length));
 
       const wanted = cameraMode();
       if (wanted !== mode) {
@@ -1132,7 +1154,7 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
         ready, mode, scale: camera.scale, focus: camera.focus,
         me: predicted(), pending: pending.length, path: path.length,
         actors: [...actors.values()].map((a) => ({
-          id: a.id, x: a.vx, y: a.vy, visible: visible(a), inside: a.inside, wolf: a.wolf, direction: a.direction,
+          id: a.id, x: a.vx, y: a.vy, visible: visible(a), inside: a.inside, wolf: a.wolf, ghost: Boolean(a.ghost), direction: a.direction,
           screen: screen(iso(a.vx, a.vy)), pickable: Boolean(a.pickable), say: a.say?.until > performance.now() ? a.say.text : null,
         })),
         interaction: interaction && { label: interaction.label, enabled: interaction.enabled },

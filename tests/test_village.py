@@ -102,3 +102,51 @@ class LuckyDaySpawnTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GhostTest(unittest.TestCase):
+    """Người chết thành linh hồn: đi nhanh gấp đôi, không theo luật làng, chỉ người chết thấy nhau."""
+
+    def setUp(self):
+        self.village = Village(Random(0))
+        self.village.begin_housing({"P1", "P2", "P3"})
+        self.village.finish_housing()
+        self.home = self.village.homes["P1"]
+        self.village.sync_ghosts({"P2", "P3"})
+
+    def test_dead_player_becomes_ghost_and_house_is_abandoned(self):
+        self.assertEqual(self.village.ghosts["P1"], HOUSE_ENTRANCES[self.home])
+        self.assertNotIn("P1", self.village.positions)
+        self.assertNotIn("P1", self.village.homes)
+        self.assertIn(self.home, self.village.abandoned)
+        self.assertEqual(self.village.allowed_actions("P1"), [])
+
+    def test_ghost_ignores_gathering_and_anyone_may_take_the_abandoned_house(self):
+        self.village.go_to_square({"P2", "P3"})
+        self.village.homes.pop("P2")
+        self.village.begin_housing({"P2", "P3"})
+        self.assertNotIn("P1", self.village.positions)
+        self.assertIn("P1", self.village.ghosts)
+        self.village.positions["P2"] = HOUSE_ENTRANCES[self.home]
+        self.assertIsNone(self.village.act("P2", {"type": "enter_house", "house_id": self.home}, 0))
+        self.assertEqual(self.village.homes["P2"], self.home)
+        self.assertNotIn(self.home, self.village.abandoned)
+
+    def test_ghost_moves_twice_as_often(self):
+        dx, dy = next((dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                      if (self.village.ghosts["P1"][0] + dx, self.village.ghosts["P1"][1] + dy) not in BLOCKED_TILES)
+        start = self.village.ghosts["P1"]
+        self.assertIsNone(self.village.ghost_move("P1", dx, dy, 0))
+        self.assertEqual(self.village.ghosts["P1"], (start[0] + dx, start[1] + dy))
+        self.assertIsNone(self.village.ghost_move("P1", -dx, -dy, 0.05))
+        self.assertEqual(self.village.ghost_move("P2", 1, 0, 0), "action_not_allowed")
+
+    def test_only_ghosts_see_ghosts(self):
+        living = self.village.view("P2", "day_discussion")
+        dead = self.village.view("P1", "day_discussion")
+        self.assertNotIn("P1", living["positions"])
+        self.assertNotIn("ghost", living)
+        self.assertTrue(dead["ghost"])
+        self.assertIn("P1", dead["positions"])
+        self.assertEqual(dead["area"], "map")
+        self.assertIn(self.home, dead["abandoned_houses"])

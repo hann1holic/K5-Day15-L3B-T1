@@ -17,6 +17,7 @@ SQUARE_SEAT_OFFSETS = (
 )
 BONFIRE_OFFSETS = ((-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0))
 MOVE_INTERVAL = 0.10
+GHOST_MOVE_INTERVAL = MOVE_INTERVAL / 2  # linh hồn đi nhanh gấp đôi
 MOVE_JITTER_ALLOWANCE = 0.20
 VISION_RADIUS = 3
 INTERACT_RADIUS = 1
@@ -81,7 +82,44 @@ class Village:
         self.bot_item_targets = {}
         self.held = {}
         self.next_move = {}
+        self.ghosts = {}        # người đã chết: đi tự do khắp làng, chỉ người chết khác thấy
+        self.abandoned = set()  # nhà của người đã chết, ai cũng vào được
         self.dirty = False
+
+    def sync_ghosts(self, alive):
+        """Turn every player who just died into a ghost that ignores the village rules."""
+        dead = (self.positions.keys() | self.homes.keys()) - set(alive) - self.ghosts.keys()
+        for pid in sorted(dead):
+            house = self.homes.pop(pid, None)
+            if house is not None:
+                self.abandoned.add(house)
+            point = self.positions.pop(pid, None)
+            if point is None or point in BLOCKED_TILES:
+                point = HOUSE_ENTRANCES[house] if house is not None else SQUARE
+            self.ghosts[pid] = point
+            self.sleeping.discard(pid)
+            self.held.pop(pid, None)
+            self.next_move.pop(pid, None)
+            self.bot_item_targets.pop(pid, None)
+        return bool(dead)
+
+    def ghost_move(self, pid, dx, dy, now):
+        if pid not in self.ghosts:
+            return "action_not_allowed"
+        if type(dx) is not int or type(dy) is not int or (dx, dy) not in DIRECTIONS:
+            return "invalid_move"
+        due = self.next_move.get(pid, 0)
+        if now < due - MOVE_JITTER_ALLOWANCE:
+            return "move_too_fast"
+        x, y = self.ghosts[pid]
+        target = (x + dx, y + dy)
+        if not (0 <= target[0] < WIDTH and 0 <= target[1] < HEIGHT):
+            return "outside_map"
+        if target in BLOCKED_TILES:
+            return "blocked_tile"
+        self.ghosts[pid] = target
+        self.next_move[pid] = max(due, now) + GHOST_MOVE_INTERVAL
+        return None
 
     def go_to_square(self, alive, *, spread=True):
         if spread:
@@ -107,6 +145,7 @@ class Village:
         unassigned = sorted(set(self.positions) - set(self.homes))
         for pid, house in zip(unassigned, self.rng.sample(available, len(unassigned))):
             self.homes[pid] = house
+            self.abandoned.discard(house)
         for pid, house in self.homes.items():
             self.positions[pid] = HOUSE_DOORS[house][:2]
         self.sleeping.update(self.positions)
@@ -179,6 +218,7 @@ class Village:
         if self.positions[pid] != HOUSE_ENTRANCES[house]:
             return "too_far"
         self.homes[pid] = house
+        self.abandoned.discard(house)  # nhà hoang có chủ mới
         self.positions[pid] = HOUSE_DOORS[house][:2]
         self.sleeping.add(pid)
         return None
@@ -232,12 +272,16 @@ class Village:
                 self.act(pid, {"type": "move", "dx": dx, "dy": dy}, now)
 
     def view(self, pid, phase, wolf_pack=()):
-        inside = pid in self.sleeping and phase != "night_wolf" and (
+        ghost = pid in self.ghosts
+        inside = not ghost and pid in self.sleeping and phase != "night_wolf" and (
             phase.startswith("night_") or phase == "pair"
         )
         positions = self.positions.copy()
         for wolf, (dx, dy) in zip(wolf_pack, BONFIRE_OFFSETS):
             positions[wolf["player_id"]] = (SQUARE[0] + dx, SQUARE[1] + dy)
+        if ghost:
+            # Chỉ người chết mới thấy các linh hồn khác.
+            positions.update(self.ghosts)
         view = {
             "size": {"width": WIDTH, "height": HEIGHT},
             "blocked_tiles": [{"x": x, "y": y} for x, y in sorted(BLOCKED_TILES)],
@@ -246,23 +290,30 @@ class Village:
             "positions": {key: {"x": x, "y": y} for key, (x, y) in positions.items()},
             "home_id": self.homes.get(pid),
             "area": (
+                "map" if ghost else
                 "home" if inside else
                 "map" if phase in {"night_housing", "lucky_day"} else
                 "square" if phase.startswith("day_") or phase == "night_wolf" else "home"
             ),
             "inside_home": inside,
             "held_item": self.held.get(pid),
+            "abandoned_houses": sorted(self.abandoned),
         }
-        if phase in {"night_housing", "night_wolf", "lucky_day"}:
+        if ghost:
+            view["ghost"] = True
+            view["ghosts"] = sorted(self.ghosts)
+        if ghost or phase in {"night_housing", "night_wolf", "lucky_day"}:
             owners = {house: player for player, house in self.homes.items()}
             view["houses"] = [
-                {"id": house, "x": x, "y": y, "kind": kind, "owner_id": owners.get(house)}
+                {"id": house, "x": x, "y": y, "kind": kind, "owner_id": owners.get(house),
+                 "abandoned": house in self.abandoned}
                 for house, (x, y, kind) in HOUSE_DOORS.items()
             ]
         if phase == "lucky_day":
+            # Linh hồn chỉ xem, không nhặt được, nên thấy hết cổ vật.
             view["visible_items"] = [
                 {"id": kind, "kind": kind, "x": x, "y": y}
                 for kind, (x, y) in self.items.items()
-                if pid in self.positions and distance(self.positions[pid], (x, y)) <= VISION_RADIUS
+                if ghost or (pid in self.positions and distance(self.positions[pid], (x, y)) <= VISION_RADIUS)
             ]
         return view

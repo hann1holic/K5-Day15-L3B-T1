@@ -25,6 +25,16 @@ const roles = {
   than_tinh_yeu: ["Thần Tình Yêu", "Ghép hai người thành phe Tình Nhân."],
 };
 const factions = { dan: "Dân", soi: "Sói", tinh_nhan: "Tình Nhân" };
+// Hình trên lá bài vai.
+const roleIcons = {
+  dan: "🌾", soi_thuong: "🐺", soi_con: "🐾", bao_ve: "🛡️", tien_tri: "🔮",
+  tien_tri_tap_su: "🕯️", phu_thuy: "🧪", tho_san: "🏹", than_tinh_yeu: "💘",
+};
+// Chia bài đếm ngầm từ `started_at`, chạy song song với 15 giây về nhà và không hiện đồng hồ:
+// 10 giây thì tráo bài, 3 giây sau lật lá vai, lá bài nằm trên màn hình thêm một lúc rồi tắt.
+const DEAL_SHUFFLE_MS = 10000;
+const DEAL_FLIP_MS = 3000;
+const DEAL_SHOW_MS = 4500;
 const actionCopy = {
   pair: ["Ghép hai người", "Hai người được chọn biết vai của nhau và chuyển sang phe Tình Nhân."],
   protect: ["Bảo vệ người này", "Chặn cú cắn của Sói lên mục tiêu trong đêm nay. Bình độc vẫn có tác dụng."],
@@ -53,6 +63,8 @@ const rejections = {
   invalid_action: "Thao tác không hợp lệ.",
   invalid_text: "Tin nhắn cần từ 1 đến 200 ký tự.",
 };
+const GHOST_GUIDE = "Bạn đã chết và thành linh hồn. Đi khắp làng nhanh gấp đôi để theo dõi mọi người đến hết ván: " +
+  "không phải về nhà, không bị gọi họp, không vào nhà hay nhặt cổ vật. Tin bạn gửi ở chat chung chỉ người chết đọc được.";
 
 let socket;
 let retry;
@@ -71,6 +83,8 @@ let savingTimers = false;
 let session = loadSession(sessionStorage);
 let rejoining = false;
 let deathNoticeFor = null;
+let ghostNoticeFor = null;
+let dealShown = "";
 let shownOutcome = "";
 let splashTimer;
 const outcomes = {
@@ -102,6 +116,17 @@ $("hud-toggle").addEventListener("click", () => {
   const closed = $("game").classList.toggle("hud-closed");
   $("hud-toggle").textContent = closed ? "Hiện bảng" : "Ẩn bảng";
 });
+
+// Lá bài vai: nằm trên bản đồ nhưng không chặn bấm hay đi lại.
+const deal = document.createElement("div");
+deal.className = "deal";
+deal.hidden = true;
+deal.setAttribute("aria-live", "polite");
+deal.innerHTML = '<div class="deal-deck">' + '<span class="deal-card"></span>'.repeat(6) + "</div>" +
+  '<div class="role-card"><div class="role-card-inner"><div class="role-face role-back"></div>' +
+  '<div class="role-face role-front"><span class="role-icon"></span><strong class="role-name"></strong>' +
+  '<small class="role-faction"></small></div></div></div><p class="deal-caption"></p>';
+$("stage").appendChild(deal);
 
 function loadSession(storage) {
   try {
@@ -458,6 +483,37 @@ function withNames(text) {
   return text.replace(/\bP\d{2}\b/g, nameOf);
 }
 
+// Giai đoạn chia bài theo đồng hồ ngầm: "wait" (chưa chia), "shuffle", "reveal", "done".
+function dealStage() {
+  if (!match?.started_at) return "done";
+  const elapsed = Date.now() - match.started_at;
+  if (elapsed < DEAL_SHUFFLE_MS) return "wait";
+  if (elapsed < DEAL_SHUFFLE_MS + DEAL_FLIP_MS) return "shuffle";
+  if (elapsed < DEAL_SHUFFLE_MS + DEAL_FLIP_MS + DEAL_SHOW_MS) return "reveal";
+  return "done";
+}
+
+function renderDeal() {
+  if (display !== "game" || !match) return;
+  const stage = dealStage();
+  const animating = stage === "shuffle" || stage === "reveal";
+  deal.hidden = !animating;
+  if (animating && deal.dataset.stage !== stage) {
+    deal.dataset.stage = stage;
+    const role = match.view.role;
+    deal.querySelector(".role-icon").textContent = roleIcons[role] || "🂠";
+    deal.querySelector(".role-name").textContent = roleName(role);
+    deal.querySelector(".role-faction").textContent = "Phe " + (factions[match.view.faction] || match.view.faction);
+    deal.querySelector(".deal-caption").textContent = stage === "shuffle" ? "Đang tráo bài…" : "Đây là vai của bạn";
+  }
+  if (!animating) deal.dataset.stage = "";
+  // Hết giai đoạn chờ thì vẽ lại bảng vai một lần.
+  if (dealShown !== stage) {
+    dealShown = stage;
+    renderGame();
+  }
+}
+
 function renderGame() {
   const view = match.view;
   // Lượt ghép đôi cũng là đêm: tiêu đề chung để không lộ lượt của vai nào.
@@ -471,13 +527,22 @@ function renderGame() {
     deathNoticeFor = match.phase_id;
     notice("Bạn đã bị loại trong đêm qua. Bạn vẫn có thể theo dõi đến hết ván.", "error");
   }
+  const ghostKey = match.code + ":" + match.started_at + ":" + match.me;
+  if (view.village?.ghost && ghostNoticeFor !== ghostKey) {
+    ghostNoticeFor = ghostKey;
+    notice("Bạn đã chết và thành linh hồn: đi khắp làng nhanh gấp đôi, chat với những người đã chết.", "error");
+  }
   $("round-news").textContent = roundNews(view);
   village.update(match, { withNames });
   // Chân dung đi cùng nhân vật trên bản đồ, không phụ thuộc vai.
   const portrait = portraitUrl(view.players.findIndex((p) => p.player_id === match.me));
   if ($("portrait").getAttribute("src") !== portrait) $("portrait").src = portrait;
-  $("player-role").textContent = roleName(view.role);
-  $("role-detail").textContent = "Phe " + (factions[view.faction] || view.faction) + ". " + (roles[view.role]?.[1] || "");
+  // Vai chỉ hiện sau khi lá bài được lật.
+  const dealt = !["wait", "shuffle"].includes(dealStage());
+  $("player-role").textContent = dealt ? roleName(view.role) : "Đang chia bài…";
+  $("role-detail").textContent = dealt
+    ? "Phe " + (factions[view.faction] || view.faction) + ". " + (roles[view.role]?.[1] || "")
+    : "Lá vai của bạn sẽ được lật sau ít giây.";
   const info = [];
   if (view.wolf_peers?.length) info.push("Đồng đội Sói: " + view.wolf_peers.map(nameOf).join(", "));
   if (view.phase === "night_wolf" && view.wolf_votes) {
@@ -492,7 +557,7 @@ function renderGame() {
       nameOf(item.target_id) + (item.is_wolf ? " là Sói" : " không phải Sói")).join(", "));
   }
   $("private-info").textContent = info.join(" · ");
-  $("private-info").hidden = !info.length;
+  $("private-info").hidden = !info.length || !dealt;
   showScreen("game");
   updateClock();
   renderActionsAndChat();
@@ -550,6 +615,7 @@ function actionDescription(kind) {
 function actionGuide(view, actions) {
   const me = view.players.find((player) => player.player_id === match.me);
   // Lúc tập trung, `players` còn là trạng thái trước đêm, nên dựa vào `you_died`.
+  if (view.village?.ghost) return GHOST_GUIDE;
   if (!me?.alive || view.you_died) return "Bạn đã bị loại. Bạn vẫn có thể theo dõi đến hết ván.";
   if (view.phase === "day_arrival") return "Mọi người đang lần lượt tới quảng trường. Thảo luận mở khi tất cả người còn sống đã có mặt.";
   if (view.phase === "night_housing") {
@@ -638,6 +704,7 @@ function renderActionsAndChat() {
   $("turn-panel").dataset.active = String(Boolean(targetActions.length));
   $("turn-title").textContent = targetActions.length === 1 ? actionDescription(targetActions[0].type)[0]
     : targetActions.length > 1 ? "Chọn kỹ năng"
+    : match.view.village?.ghost ? "Linh hồn"
     : { night_prepare: "Sắp đến lượt bạn", night_housing: "Về nhà", lucky_day: "Tìm vật phẩm" }[match.view.phase] || "Lượt của bạn";
   $("phase-guide").textContent = actionGuide(match.view, targetActions);
   const signature = JSON.stringify([match.phase_id, targetActions]);
@@ -650,8 +717,23 @@ function renderActionsAndChat() {
   renderChat();
 }
 
+// Người chết đọc chat chung xen với chat của người chết, đúng thứ tự gửi (`after` = số dòng chung trước nó).
+function publicWithDead(view) {
+  const dead = view.dead_chat ?? [];
+  const rows = [];
+  let next = 0;
+  view.public_chat.forEach((entry, index) => {
+    while (next < dead.length && dead[next].after <= index) rows.push({ ...dead[next++], dead: true });
+    rows.push(entry);
+  });
+  while (next < dead.length) rows.push({ ...dead[next++], dead: true });
+  return rows;
+}
+
 function renderChat() {
   const view = match.view;
+  // Chỉ người đã chết nhận `dead_chat`.
+  const ghost = Array.isArray(view.dead_chat);
   // Chat Sói chỉ có với Sói đang trong lượt săn.
   $("wolf-tab").hidden = !view.wolf_chat;
   if (!view.wolf_chat && chatChannel === "wolf") chatChannel = "public";
@@ -675,14 +757,15 @@ function renderChat() {
   const peer = chatPeer.value;
   const messages = isPrivate
     ? view.private_chat.filter((entry) => peer && [entry.player_id, entry.target_id].includes(peer))
-    : isWolf ? view.wolf_chat : view.public_chat;
+    : isWolf ? view.wolf_chat : ghost ? publicWithDead(view) : view.public_chat;
   const signature = JSON.stringify([chatChannel, peer, messages]);
   if (signature !== chatSignature) {
     chatSignature = signature;
     const log = $("chat-log");
     const rows = messages.map((entry) => {
-      const row = element("li");
-      row.append(element("strong", nameOf(entry.player_id)), document.createTextNode(": " + withNames(entry.text)));
+      const row = element("li", undefined, entry.dead ? "dead-line" : undefined);
+      row.append(element("strong", (entry.dead ? "👻 " : "") + nameOf(entry.player_id)),
+        document.createTextNode(": " + withNames(entry.text)));
       return row;
     });
     if (!rows.length) rows.push(element("li", isPrivate && !peer ? "Chọn người để xem tin nhắn riêng." : "Chưa có tin nhắn.", "muted"));
@@ -695,14 +778,16 @@ function renderChat() {
     log.dataset.channel = channel;
     log.scrollTop = follow ? log.scrollHeight : reading;
   }
-  const kind = isPrivate ? "whisper" : isWolf ? "wolf_chat" : "chat";
-  const option = view.allowed_actions.find((action) => action.type === kind);
+  const kind = isPrivate ? "whisper" : isWolf ? "wolf_chat" : ghost ? "dead_chat" : "chat";
+  // Người chết luôn chat được với nhau đến hết ván.
+  const option = kind === "dead_chat" ? { type: kind } : view.allowed_actions.find((action) => action.type === kind);
   const enabled = Boolean(option && online() && (!isPrivate || option.target_ids.includes(peer)));
   $("chat-input").disabled = !enabled;
   $("chat-form").querySelector("button").disabled = !enabled || awaitingAction;
-  $("chat-status").textContent = !option ? "Chat mở trong pha thảo luận."
+  $("chat-status").textContent = !option ? (ghost ? "Người chết không chat riêng được." : "Chat mở trong pha thảo luận.")
     : isPrivate && !enabled ? "Chọn một người đang trong ván để nhắn."
-    : isWolf ? "Chỉ đàn Sói đang săn đọc được." : "";
+    : isWolf ? "Chỉ đàn Sói đang săn đọc được."
+    : kind === "dead_chat" ? "Bạn đã chết: tin của bạn mờ đi và chỉ người chết đọc được." : "";
 }
 
 function renderResult() {
@@ -747,7 +832,9 @@ function resetRoom({ keepRecent = false } = {}) {
   // Mỗi phòng đếm phase_id riêng, nên quên mốc báo chết của phòng cũ.
   village.reset();
   outbox = [];
-  match = room = lobby = deathNoticeFor = null;
+  match = room = lobby = deathNoticeFor = ghostNoticeFor = null;
+  dealShown = "";
+  deal.hidden = true;
   awaitingAction = rejoining = false;
   chatChannel = "public";
   actionSignature = chatSignature = timerSignature = pendingActionText = "";
@@ -823,10 +910,13 @@ $("chat-form").addEventListener("submit", (event) => {
   if (!text) return;
   const action = chatChannel === "private"
     ? { type: "whisper", target_id: $("chat-peer").value, text }
-    : { type: chatChannel === "wolf" ? "wolf_chat" : "chat", text };
+    : { type: chatChannel === "wolf" ? "wolf_chat" : Array.isArray(match?.view.dead_chat) ? "dead_chat" : "chat", text };
   submitAction(action);
 });
 
 updateResume();
 connect();
-setInterval(updateClock, 250);
+setInterval(() => {
+  updateClock();
+  renderDeal();
+}, 250);
