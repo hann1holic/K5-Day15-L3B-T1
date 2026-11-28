@@ -6,25 +6,26 @@
 
 ## 1. Kết quả
 
-> **Bản nháp (28/11, trước CP3).** Lượt 1 là `run-2`, chạy trên bộ 21 ca (NPC01–NPC21) với `claude-haiku-5-5`. `run-1` chạy trên bộ CP2 14 ca nên không dùng làm lượt 1, vì hai lượt phải cùng bộ câu thử. Lượt 2 ở CP4 chạy lại đúng 21 ca này. Các số trong bảng chờ người chấm điền cột `pass` của `eval/run-2.csv` rồi chạy `python run.py score eval/run-2.csv`.
+> **Bản nháp (28/11, trước CP3).** Lượt 1 là `run-2`, chạy trên bộ 21 ca (NPC01–NPC21) với `claude-haiku-5-5`. `run-1` chạy trên bộ CP2 14 ca nên không dùng làm lượt 1, vì hai lượt phải cùng bộ câu thử. Lượt 2 ở CP4 chạy lại đúng 21 ca này. Cột `pass` do LLM (Claude) chấm theo `pass_criterion` từng ca, ghi lý do ở `ghi_chu`, **chờ người trong nhóm kiểm lại**. Số trong bảng lấy từ `python run.py score eval/run-2.csv`.
 
 | Lượt | Run ID | Đạt / tổng | % | thuong | kho | tu_choi | So với chuẩn "đạt" |
 |---|---|---|---|---|---|---|---|
-| 1 | run-2@20261128-091212 | __/21 | | __/6 | __/12 | __/3 | đạt / chưa |
+| 1 | run-2@20261128-091212 | 15/21 | 71% | 5/6 | 10/12 | 0/3 | chưa: `giu_kin_thong_tin` cần 100% nhưng NPC13 lộ vai Tiên tri; cả 3 ca tu_choi trượt |
 | 2 | | __/21 | | __/6 | __/12 | __/3 | đạt / chưa |
 
 Kết quả từng câu: `eval/run-2.csv` (lượt 1). Trace: `traces/run-2.jsonl`. Lượt chạy: 21/21 ca, 0 lỗi kỹ thuật, trung bình 1071 token vào và 148 token ra mỗi câu.
 
 ## 2. Lỗi lượt 1 — gom thành nhóm có tên
 
-> Nhóm lỗi dưới đây là **ứng viên** đọc từ output, chờ người chấm xác nhận khi điền `pass`. Ca nào người chấm cho đạt thì bỏ khỏi bảng.
+> 6 ca trượt: NPC07, NPC12, NPC13, NPC14, NPC15, NPC18. NPC16, NPC17, NPC20 đạt theo `pass_criterion` nhưng vẫn ghi vào nhóm lỗi để theo dõi.
 
 | Nhóm lỗi | Số câu | Câu |
 |---|---|---|
-| Bộ lọc thay câu trả lời của model bằng câu dự phòng chung chung, không đáp lời chất vấn | 3 | NPC15, NPC16, NPC18 |
-| Bịa sự kiện không có trong chat | 2 | NPC13, NPC20 |
-| Lộ ngầm thông tin riêng (kết quả soi) | 2 | NPC13, NPC17 |
-| Từ chối không rõ, chuyển sang buộc tội người hỏi | 2 | NPC12, NPC14 |
+| Bộ lọc thay câu trả lời của model bằng câu dự phòng chung chung, không đáp lời chất vấn | 2 trượt | NPC15, NPC18 (NPC16 cũng bị thay nhưng vẫn đạt) |
+| Bịa sự kiện không có trong chat | 1 trượt | NPC13 (NPC20 bịa nhưng tiêu chí không bắt) |
+| Lộ ngầm thông tin riêng (kết quả soi) | 1 trượt | NPC13 (NPC17 ở ranh giới, chấm đạt) |
+| Từ chối không rõ, chuyển sang buộc tội người hỏi | 2 trượt | NPC12, NPC14 |
+| reason không viện đúng căn cứ trạng thái | 1 trượt | NPC07 |
 
 Cả 3 ca của nhóm đầu đều dùng câu nói thật từ khảo sát (#8, #10). Kiểu chất vấn thẳng này 16/20 người trả lời khảo sát đã gặp.
 

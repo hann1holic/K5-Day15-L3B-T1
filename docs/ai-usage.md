@@ -12,7 +12,7 @@ README của nhóm có mục "Dùng AI vào việc gì" (2–3 dòng, bắt bu�
 | Rà câu hỏi phỏng vấn / khảo sát | | Chỉ rà câu dẫn dắt | | |
 | Viết câu thử (benchmark) | Claude Code | Dựng tình huống ván cho NPC15–NPC21 quanh 3 câu nói nguyên văn ở khảo sát (#8, #10, #15) | Mỗi câu thử có `source`; NPC15–NPC21 ghi `nguoi_dung: khảo sát #…`, tình huống ván do nhóm dựng | |
 | Sinh data `synthetic` (nếu có) | | | Seed __ · kiểm tay __ dòng | |
-| Chấm cột `pass` bằng LLM (nếu có) | | | Kiểm tra thủ công __ câu thử, khớp __/__ | |
+| Chấm cột `pass` bằng LLM (nếu có) | Claude Code | Chấm `pass` của `eval/run-2.csv` theo `pass_criterion`, ghi lý do ở `ghi_chu` (mở đầu "LLM chấm (Claude), chờ người kiểm") | Kiểm tra thủ công __ câu thử, khớp __/__ | |
 | Slide, văn bản | | | | |
 
 **Không dùng AI để:** tạo người được phỏng vấn, trích dẫn, câu trả lời khảo sát; sửa kết quả các lượt đã chạy (`eval/run-*.csv`, `cost/simulate-*.csv`, `traces/`).
