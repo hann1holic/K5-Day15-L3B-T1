@@ -72,6 +72,7 @@ class Room:
         self.accepting = False
         self.acted = set()
         self.bot_tasks = []
+        self.bot_discussion_replies = set()
         self.bot_workers = set()
         self.turn_end = 0
         self.idle_task = None
