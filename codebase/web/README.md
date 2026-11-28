@@ -54,7 +54,10 @@ vẽ và điều khiển, `src/art.js` vẽ nhà, Sói, lửa, cổ vật; tên 
 - Chủ Khiên Pridwen còn hiệu lực qua đêm (`view.night_shield`) thấy huy hiệu khiên; người khác không thấy.
 - Phòng không bật làng (tạo từ máy khách khác) vẫn xem được: mọi người đứng ở quảng trường, không đi lại.
 - **Chia bài:** `state.started_at` là mốc bắt đầu ván (ms). Giao diện đếm ngầm, không hiện đồng hồ và chạy song song
-  với 15 giây về nhà: giây 10 tráo bài, giây 13 lật lá vai. Trước khi lật, bảng vai ghi "Đang chia bài…".
+  với 15 giây về nhà: giây 6 tráo bài, giây 9 lật lá vai, giây 17,5 tắt. Trước khi lật, bảng vai ghi "Đang chia bài…".
+- **Danh sách vai:** phòng chờ (đổi theo số ghế), lúc chia bài và mục "Các vai trong ván" ở bảng bên đều liệt kê
+  mọi vai kèm số lượng; vai không có thì mờ. Server chỉ gửi vai của riêng mỗi người, nên giao diện tính số lượng theo
+  số ghế trong `src/lineup.js`, chép từ `deal_roles()` của `codebase/game_engine.py`: sửa luật chia thì sửa cả hai.
 - **Linh hồn:** người chết (bị cắn, bị vote, chết theo) không theo luật nào nữa. `view.village.ghost` là `true`,
   `allowed_actions` chỉ còn `move`, bước cách nhau 90 ms (nhanh gấp đôi), đi được cả lúc cả làng họp hay ngủ.
   Nhà của họ thành nhà hoang (`abandoned_houses`); người sống nào cũng vào được, vào rồi thì nhà có chủ mới. Chỉ người chết thấy vị trí các linh hồn (`ghosts`).
@@ -63,8 +66,11 @@ vẽ và điều khiển, `src/art.js` vẽ nhà, Sói, lửa, cổ vật; tên 
 
 ## Hình và phong cách
 
-- Nền, cây cỏ, trang phục nhân vật, chân dung: bộ [FLARE](https://github.com/flareteam/flare-game),
+- Mặt đất, cây cỏ, trang phục nhân vật, chân dung: bộ [FLARE](https://github.com/flareteam/flare-game),
   **CC-BY-SA 3.0**, phải ghi công; xem `src/assets/flare/README.md`.
+- Nền trang đầu, phòng chờ và kết quả: bốn cảnh tranh (phạm vi công cộng, trăng CC0) đổi vòng tròn mỗi 2 giây,
+  tắt khi đang chơi; người bật "giảm chuyển động" chỉ thấy một cảnh đứng yên. Mã ở `src/backdrop.js` và
+  `src/backdrop-scenes.js`; nguồn ở `src/assets/backdrop/README.md`.
 - Nhà, Sói, lửa, khiên và gươm: nhiều tác giả, mỗi nguồn một giấy phép (CC0, CC-BY, CC-BY-SA);
   xem `src/assets/village/README.md`.
 - Font Be Vietnam Pro và Cormorant Garamond cài qua `@fontsource`. Kiểu nằm trong `src/theme.css` và `src/village.css`.

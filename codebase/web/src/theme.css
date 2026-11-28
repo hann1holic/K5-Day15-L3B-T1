@@ -1,4 +1,4 @@
-/* Phong cách u tối: khung đen viền đồng, nền làng đêm, chữ Cormorant Garamond + Be Vietnam Pro.
+/* Phong cách u tối: khung đen viền đồng, chữ Cormorant Garamond + Be Vietnam Pro. Nền tranh ở backdrop.css.
    Bỏ dòng import file này trong main.js là về lại kiểu cũ. */
 
 :root {
@@ -11,10 +11,8 @@
   --accent: #c9a75f;
   --ink: #140f0a;
 }
-body {
-  background: linear-gradient(#050608c4, #050608f2), url("./assets/flare/home.webp") center / cover fixed #07080a;
-  min-height: 100vh;
-}
+/* Trong suốt để thấy lớp nền tranh nằm phía sau (z-index âm). */
+body { background: transparent; min-height: 100vh; }
 h1, h2, .brand { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 700; letter-spacing: .02em; color: #e8d9b5; }
 h2 { font-size: 1.45rem; }
 .entry h1 { color: #e8d9b5; text-shadow: 0 6px 30px #000; }
@@ -102,4 +100,6 @@ h1:focus { outline: none; }
   #game .interact { bottom: calc(18px + var(--below)); }
   #game .village-toast { bottom: calc(80px + var(--below)); max-width: 92%; }
   #game .held { top: 170px; left: 8px; max-width: 250px; font-size: .74rem; }
+  /* Chia bài canh giữa phần bản đồ dưới tiêu đề. */
+  #game .deal { padding-top: 96px; }
 }

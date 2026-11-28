@@ -32,7 +32,7 @@
 @keyframes slash { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 
 /* Chia bài: tráo bộ bài rồi lật lá vai. Không chặn bấm hay đi lại trên bản đồ. */
-.deal { position: absolute; inset: 0; z-index: 15; display: grid; place-content: center; justify-items: center; gap: 14px; pointer-events: none; background: radial-gradient(circle, #05060a99 0, #05060a33 45%, #0000 70%); animation: deal-in .35s ease-out; }
+.deal { position: absolute; inset: 0 var(--side, 0px) var(--below, 0px) 0; z-index: 15; display: grid; grid-template-columns: minmax(0, 600px); place-content: center; justify-items: center; gap: 14px; padding: 0 12px; pointer-events: none; background: radial-gradient(circle, #05060acc 0, #05060a80 45%, #0000 72%); animation: deal-in .35s ease-out; }
 .deal[hidden] { display: none; }
 .deal-deck { position: relative; width: 120px; height: 172px; }
 .deal-card, .role-face { border-radius: 12px; border: 2px solid #d9a441; box-shadow: 0 10px 30px #000a; background: repeating-linear-gradient(45deg, #3a1d12 0 8px, #4a2617 8px 16px), #3a1d12; }
@@ -62,6 +62,56 @@
 }
 @keyframes flip { from { transform: rotateY(0) scale(.85); } 60% { transform: rotateY(200deg) scale(1.08); } to { transform: rotateY(180deg) scale(1); } }
 @keyframes deal-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Mọi vai có thể có, kèm số lượng trong ván: hiện cùng lá bài và mở lại được ở bảng bên. */
+.deal-lineup { display: grid; justify-items: center; gap: 8px; width: 100%; }
+.deal-lineup-title { margin: 0; font-size: .9rem; color: #f1ddb0; text-shadow: 0 2px 8px #000; text-align: center; }
+.lineup-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.lineup-grid li { display: grid; justify-items: center; align-content: start; gap: 2px; width: 112px; padding: 6px 4px 7px; border: 1px solid #5d4c33; border-top: 3px solid #b8935a; background: #0e0b09f0; font-size: .76rem; line-height: 1.25; text-align: center; color: #e3d8c2; }
+.lineup-grid li[data-faction=soi], .lineup-list li[data-faction=soi] { border-top-color: #c2432f; }
+.lineup-grid li[data-count="0"] { opacity: .42; filter: grayscale(1); }
+.lineup-grid li[data-mine=true] { border-color: #ffd978; box-shadow: 0 0 0 1px #ffd978, 0 0 20px #ffb84d80; }
+.lineup-icon { font-size: 1.35rem; line-height: 1.2; }
+.lineup-count { font: 600 .92rem/1.2 "Be Vietnam Pro", "Segoe UI", sans-serif; color: #ffd978; white-space: nowrap; }
+.lineup-grid li[data-count="0"] .lineup-count, .lineup-list li[data-count="0"] .lineup-count { font: 400 .74rem "Be Vietnam Pro", sans-serif; color: inherit; }
+/* Màn hình thấp: thu nhỏ lá bài để danh sách vai vẫn đủ chỗ. */
+@media (max-height: 660px) {
+  .deal { gap: 8px; }
+  .deal-deck, .role-card { zoom: .7; }
+}
+/* Điện thoại (dọc hoặc ngang): danh sách vai thành nhãn ngang, vai không có thì gạch ngang. */
+@media (max-width: 760px), (max-height: 520px) {
+  .deal { gap: 8px; }
+  .deal-deck, .role-card { zoom: .64; }
+  .deal-caption { font-size: 1.05rem; }
+  .deal-lineup { gap: 5px; }
+  .deal-lineup-title { font-size: .76rem; }
+  .deal-lineup .lineup-grid { gap: 4px; }
+  .deal-lineup .lineup-grid li { display: flex; align-items: center; gap: 5px; width: auto; padding: 3px 7px; border-top-width: 1px; border-left: 3px solid #b8935a; font-size: .68rem; }
+  .deal-lineup .lineup-grid li[data-faction=soi] { border-left-color: #c2432f; }
+  .deal-lineup .lineup-icon { font-size: .9rem; }
+  .deal-lineup .lineup-count { font-size: .74rem; }
+  .deal-lineup .lineup-grid li[data-count="0"] { text-decoration: line-through; }
+  .deal-lineup .lineup-grid li[data-count="0"] .lineup-count { display: none; }
+}
+@media (max-width: 760px) and (max-height: 700px), (max-height: 520px) {
+  .village:has(.deal:not([hidden])) .village-hint { visibility: hidden; }
+  .deal { gap: 5px; }
+  .deal-deck, .role-card { zoom: .52; }
+  .deal-lineup .lineup-icon { display: none; }
+  .deal-lineup .lineup-grid li { padding: 2px 5px; font-size: .64rem; }
+}
+
+/* Phòng chờ: thẻ chia đều theo bề rộng bảng. */
+.lobby-lineup .lineup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); margin: .7rem 0; }
+.lobby-lineup .lineup-grid li { width: auto; }
+
+.lineup-list { display: grid; gap: 5px; margin-top: .5rem; }
+.lineup-list li { display: grid; grid-template-columns: auto 1fr; gap: 9px; padding: 6px 8px; border: 1px solid #3d3222; border-top: 2px solid #b8935a; background: #0d0b0a; }
+.lineup-list li > div > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: #e3d8c2; }
+.round-help .lineup-list li p { margin-top: .1rem; line-height: 1.4; }
+.lineup-list li[data-count="0"] { opacity: .5; }
+.lineup-list li[data-mine=true] { border-color: #c9a75f; }
 
 /* Chat của người chết: chỉ người chết thấy, mờ đi để phân biệt với chat chung. */
 .chat-log li.dead-line { opacity: .5; font-style: italic; }

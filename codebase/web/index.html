@@ -9,6 +9,7 @@
   <link rel="icon" href="data:,">
 </head>
 <body>
+  <div id="backdrop"></div>
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true"></span> Ma Sói</div>
     <div id="connection" class="connection" data-status="waiting" role="status">Đang kết nối</div>
@@ -49,7 +50,7 @@
         <button class="quiet leave" type="button">Rời phòng</button>
       </div>
       <div class="lobby-grid">
-        <div class="panel"><h2>Người chơi <span id="seat-count" class="small"></span></h2><ul id="members" class="members"></ul></div>
+        <div class="panel lobby-members"><h2>Người chơi <span id="seat-count" class="small"></span></h2><ul id="members" class="members"></ul></div>
         <div class="panel lobby-controls">
           <button id="copy-code" type="button">Sao chép mã phòng</button>
           <label id="lobby-seat-label" for="lobby-seats" hidden>Số ghế trong phòng</label>
@@ -70,6 +71,12 @@
           <p id="bot-count" class="muted"></p>
           <button id="start" class="primary" type="button" data-connection hidden>Bắt đầu</button>
         </div>
+        <div class="panel lobby-lineup">
+          <h2>Vai trong ván</h2>
+          <p id="lobby-lineup-total" class="muted small"></p>
+          <ul id="lobby-lineup" class="lineup-grid"></ul>
+          <p class="muted small">Phe Tình Nhân chỉ xuất hiện khi Thần Tình Yêu ghép đôi.</p>
+        </div>
       </div>
     </section>
 
@@ -86,6 +93,12 @@
             <p id="phase-guide" class="muted"></p>
             <div id="action-list" class="action-list"></div>
             <p id="action-status" class="muted small" role="status"></p>
+            <details class="round-help">
+              <summary>Các vai trong ván</summary>
+              <p id="lineup-total" class="small"></p>
+              <ul id="lineup-list" class="lineup-list"></ul>
+              <p class="small">Phe Tình Nhân chỉ xuất hiện khi Thần Tình Yêu ghép đôi.</p>
+            </details>
             <details class="round-help">
               <summary>Cách chơi</summary>
               <p><strong>Đi lại:</strong> phím mũi tên / WASD, hoặc bấm lên mặt đất. Bấm <strong>F</strong> để vào nhà hoặc nhặt đồ.</p>

@@ -60,7 +60,10 @@ ul { list-style: none; margin: 0; padding: 0; }
 .screen-heading p:not(.eyebrow) { color: var(--muted); margin-top: .45rem; line-height: 1.5; }
 .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .83rem; font-weight: 700; color: var(--accent); margin-bottom: .4rem; }
 .heading-controls { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; justify-content: end; }
-.lobby-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 1rem; }
+.lobby-grid { display: grid; grid-template-columns: 1.55fr 1fr; grid-template-rows: auto 1fr; grid-template-areas: "members controls" "lineup controls"; gap: 1rem; }
+.lobby-members { grid-area: members; }
+.lobby-controls { grid-area: controls; }
+.lobby-lineup { grid-area: lineup; }
 .lobby-controls { display: grid; align-content: start; gap: .75rem; }
 .lobby-controls label { margin-bottom: -.3rem; }
 .members li { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .72rem 0; border-bottom: 1px solid var(--line); }
@@ -93,6 +96,8 @@ ul { list-style: none; margin: 0; padding: 0; }
 @media (max-width: 760px) {
   .shell { padding-top: 1.5rem; }
   .entry, .lobby-grid, .game-grid { grid-template-columns: 1fr; }
+  /* Điện thoại: nút điều khiển của chủ phòng nằm trên danh sách vai. */
+  .lobby-grid { grid-template-rows: none; grid-template-areas: "members" "controls" "lineup"; }
   .entry { gap: 1rem; min-height: auto; }
   .entry-box { max-width: 480px; }
   .game-grid { align-items: stretch; }
@@ -107,7 +112,8 @@ ul { list-style: none; margin: 0; padding: 0; }
 .timing h2 { margin-bottom: .35rem; font-size: 1.2rem; }
 #timer-settings { display: grid; gap: .55rem; margin-top: .65rem; }
 .timer-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
-.timer-fields label { font-size: .875rem; margin: 0; }
+/* Nhãn dài ngắn khác nhau (xuống 1–3 dòng) thì ô nhập vẫn thẳng hàng ở đáy. */
+.timer-fields label { display: flex; flex-direction: column; justify-content: space-between; font-size: .875rem; margin: 0; }
 .timer-fields input { margin-top: .3rem; }
 .turn-panel { margin-bottom: 1rem; }
 .turn-panel[data-active=true] { border-color: #9e7847; background: #272217; }
