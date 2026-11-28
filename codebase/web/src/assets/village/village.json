@@ -1,0 +1,105 @@
+{
+ "houses": {
+  "castle": [
+   "house-castle"
+  ],
+  "villa": [
+   "house-villa-a",
+   "house-villa-b"
+  ],
+  "single_storey": [
+   "house-single-a",
+   "house-single-b"
+  ],
+  "hut": [
+   "house-hut-a",
+   "house-hut-b"
+  ]
+ },
+ "art": {
+  "house-castle": {
+   "w": 470,
+   "h": 397,
+   "dx": 0,
+   "dy": 8
+  },
+  "house-villa-a": {
+   "w": 440,
+   "h": 436,
+   "dx": 0,
+   "dy": 8
+  },
+  "house-villa-b": {
+   "w": 420,
+   "h": 470,
+   "dx": 0,
+   "dy": 8
+  },
+  "house-single-a": {
+   "w": 390,
+   "h": 324,
+   "dx": 0,
+   "dy": 8
+  },
+  "house-single-b": {
+   "w": 380,
+   "h": 295,
+   "dx": 0,
+   "dy": 8
+  },
+  "house-hut-a": {
+   "w": 360,
+   "h": 295,
+   "dx": 0,
+   "dy": 8
+  },
+  "house-hut-b": {
+   "w": 370,
+   "h": 379,
+   "dx": 0,
+   "dy": 8
+  }
+ },
+ "wolves": {
+  "soi_thuong": {
+   "file": "werewolf",
+   "scale": 2.2
+  },
+  "soi_con": {
+   "file": "cub",
+   "scale": 1.55
+  },
+  "cell": 128,
+  "anchor": [
+   64,
+   96
+  ],
+  "frames": 4
+ },
+ "fire": {
+  "file": "fire",
+  "w": 81,
+  "h": 123,
+  "cols": 10,
+  "count": 40
+ },
+ "items": {
+  "file": "loot",
+  "shield": [
+   0,
+   0,
+   51,
+   50,
+   31,
+   28
+  ],
+  "sword": [
+   52,
+   0,
+   100,
+   22,
+   57,
+   14
+  ]
+ }
+}

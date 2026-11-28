@@ -1,0 +1,32 @@
+/* Làng vẽ trên canvas; các lớp chữ nổi bên trên là DOM. */
+
+.village { position: relative; width: 100%; height: 100%; overflow: hidden; touch-action: none; cursor: pointer; user-select: none; background: #05060a; }
+.village .scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.village .loading { position: absolute; inset: 0; display: grid; place-content: center; background: #05060a; color: #d9c08a; font: 700 1.5rem "Cormorant Garamond", Georgia, serif; z-index: 3; }
+
+.compass { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 8px; padding: 4px 12px; border: 1px solid #6b573a; background: #0e0b09d8; color: #e2c684; font: 600 .8rem "Be Vietnam Pro", sans-serif; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; white-space: nowrap; }
+.compass-arrow { display: inline-block; }
+
+.village-hint { position: absolute; left: 14px; bottom: 14px; max-width: min(560px, calc(100% - 28px)); margin: 0; padding: 8px 14px; border: 1px solid #4a3d29; background: #0b0908d9; color: #d9cfbd; font-size: .86rem; pointer-events: none; z-index: 5; }
+
+.countdown { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; min-width: 250px; padding: 18px 30px 14px; border: 1px solid #8a7048; background: #0c0a09e6; box-shadow: inset 0 0 0 1px #000, 0 18px 60px #000d; color: #e8d9b5; pointer-events: none; z-index: 4; }
+.countdown small { font-size: .72rem; letter-spacing: .22em; text-transform: uppercase; color: #9c8761; }
+.countdown span { font: 700 1.5rem "Cormorant Garamond", Georgia, serif; }
+.countdown strong { font: 700 5.2rem/1 "Cormorant Garamond", Georgia, serif; color: #e0613f; text-shadow: 0 0 28px #b2301e; }
+
+/* Nút F: vào nhà hoặc nhặt đồ. Nhà người khác thì mờ hẳn. */
+.interact { position: absolute; left: calc(50% - var(--side, 0px) / 2); bottom: calc(72px + var(--below, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 20px 8px 10px; z-index: 6; border: 1px solid #c9a75f; border-radius: 3px; background: #1a130cf0; color: #f4e6c4; font: 600 1rem "Be Vietnam Pro", sans-serif; white-space: nowrap; box-shadow: 0 10px 30px #000b; }
+.interact kbd { display: grid; place-content: center; width: 34px; height: 34px; border-radius: 3px; background: #e8c36a; color: #1c130a; font: 700 1.15rem "Be Vietnam Pro", sans-serif; }
+.interact:disabled { opacity: .45; border-color: #4a443c; color: #a9a196; }
+.interact:disabled kbd { background: #55504a; color: #9d968b; }
+
+.held { position: absolute; left: 14px; top: 150px; display: flex; align-items: center; gap: 10px; max-width: 300px; padding: 6px 14px 6px 8px; z-index: 5; border: 1px solid #8a7048; background: #0e0b09e6; color: #ecdcb4; font-size: .8rem; line-height: 1.35; pointer-events: none; }
+.held img { flex: none; width: 44px; height: 44px; border: 1px solid #6b573a; border-radius: 50%; background: #000; padding: 3px; }
+.held strong { display: block; font: 700 1rem "Cormorant Garamond", Georgia, serif; color: #ffe29a; }
+
+.village-toast { position: absolute; left: calc(50% - var(--side, 0px) / 2); bottom: calc(134px + var(--below, 0px)); transform: translateX(-50%); margin: 0; padding: 8px 16px; z-index: 7; border: 1px solid #a3563c; background: #240f0cf2; color: #ffe3d8; font-size: .9rem; width: max-content; max-width: min(520px, 88%); text-align: center; pointer-events: none; }
+
+/* Chỉ người bị loại thấy: một nhát chém ngang màn hình. */
+.death { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; gap: 8px; z-index: 20; color: #f4e4d8; background: linear-gradient(115deg, #0000 47%, #f3ece4 49%, #8f0d12 50%, #0000 53%), radial-gradient(circle, #3b0508e8, #0d0102f5); animation: slash .45s ease-out; }
+.death strong { font: 700 3rem "Cormorant Garamond", Georgia, serif; letter-spacing: .04em; text-shadow: 0 4px 24px #000; }
+@keyframes slash { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }

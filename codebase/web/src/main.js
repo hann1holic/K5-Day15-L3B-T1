@@ -1,7 +1,12 @@
-import "@fontsource/vt323";
+import "@fontsource/be-vietnam-pro/400.css";
+import "@fontsource/be-vietnam-pro/600.css";
+import "@fontsource/cormorant-garamond/600.css";
+import "@fontsource/cormorant-garamond/700.css";
 import "./styles.css";
-import "./theme-rpg.css";
-import { renderStage } from "./stage.js";
+import "./theme.css";
+import { portraitUrl } from "./sprites.js";
+import { createVillage } from "./village.js";
+import { ITEMS, NIGHT_SHIELD } from "./items.js";
 
 const $ = (id) => document.getElementById(id);
 const screens = ["home", "lobby", "game", "result"];
@@ -66,6 +71,37 @@ let savingTimers = false;
 let session = loadSession(sessionStorage);
 let rejoining = false;
 let deathNoticeFor = null;
+let shownOutcome = "";
+let splashTimer;
+const outcomes = {
+  victory: ["Chiến thắng", "Phe của bạn đã thắng."],
+  defeat: ["Thất bại", "Phe của bạn đã thua."],
+  draw: ["Hòa", "Không phe nào thắng."],
+};
+// Server trả đúng một `action_result` cho mỗi `action`, theo thứ tự: nhớ ai gửi để chuyển về đúng chỗ.
+let outbox = [];
+const village = createVillage($("stage"), {
+  // Đi lại, vào nhà, nhặt đồ: gửi thẳng, không khoá các nút khác.
+  onAction(action) {
+    if (!online() || !match) return false;
+    socket.send(JSON.stringify({ type: "action", phase_id: match.phase_id, action }));
+    outbox.push("village");
+    return true;
+  },
+  onPick: pickTarget,
+  // Phần màn hình bị bảng thông tin che, để camera canh nhân vật vào chỗ trống.
+  insets() {
+    const side = document.querySelector(".game-side");
+    if ($("game").classList.contains("hud-closed")) return { right: 0, bottom: 0 };
+    return window.innerWidth < 760
+      ? { right: 0, bottom: side.offsetHeight }
+      : { right: side.offsetWidth + 12, bottom: 0 };
+  },
+});
+$("hud-toggle").addEventListener("click", () => {
+  const closed = $("game").classList.toggle("hud-closed");
+  $("hud-toggle").textContent = closed ? "Hiện bảng" : "Ẩn bảng";
+});
 
 function loadSession(storage) {
   try {
@@ -179,6 +215,8 @@ function connect({ preserveNotice = false } = {}) {
     if (ws !== socket) return;
     awaitingAction = false;
     savingTimers = false;
+    outbox = [];
+    village.disconnected();
     connection("offline");
     retry = setTimeout(connect, 1500);
   });
@@ -202,6 +240,7 @@ function receive(message) {
       // Về phòng chờ (ván lỗi hoặc có người mới vào sau khi ván kết thúc): bỏ ván cũ.
       if (match) {
         match = null;
+        village.reset();
         actionSignature = chatSignature = "";
         $("action-status").textContent = "";
       }
@@ -211,9 +250,14 @@ function receive(message) {
     case "state": {
       const phaseChanged = match?.phase_id !== message.phase_id;
       if (phaseChanged) awaitingAction = false;
-      if (match?.view.round !== message.view.round || match?.view.phase === "finished") {
+      // Xác nhận của pha trước (vd phiếu cắn ban đêm) không được treo sang pha sau.
+      if (match?.view.phase !== message.view.phase || match?.view.round !== message.view.round) {
         $("action-status").textContent = "";
       }
+      // Vào lượt săn thì mở sẵn chat đàn Sói, hết lượt thì về chat chung.
+      const hunting = message.view.allowed_actions.some((a) => a.type === "wolf_chat");
+      if (hunting && match?.view.phase !== "night_wolf") chatChannel = "wolf";
+      if (!message.view.wolf_chat && chatChannel === "wolf") chatChannel = "public";
       match = message;
       // Chỉ xoá thông báo lỗi khi sang lượt mới, để tin lỗi không biến mất sau 0,7 giây lúc trời sáng.
       if (phaseChanged && $("notice").dataset.tone === "error") notice();
@@ -225,6 +269,10 @@ function receive(message) {
       break;
     }
     case "action_result":
+      if (outbox.shift() === "village") {
+        village.result(message);
+        break;
+      }
       awaitingAction = false;
       // Chỉ xoá ô chat khi server đã nhận, để tin bị từ chối không mất.
       if (message.accepted && pendingAction?.text && $("chat-input").value.trim() === pendingAction.text) {
@@ -251,6 +299,7 @@ function receive(message) {
         awaitingAction = false;
         actionSignature = chatSignature = "";
         $("action-status").textContent = "";
+        village.reset();
         notice(message.message || "Ván đã dừng. Phòng đã về phòng chờ.", "error");
         break;
       }
@@ -375,19 +424,33 @@ function roundNews(view) {
   const list = (ids) => ids.map(nameOf).join(", ");
   // Lúc tập trung, server cố ý giữ kín danh sách người chết: chỉ báo ai đã có mặt.
   if (view.phase === "day_arrival") {
-    const arrived = view.arrivals?.length ? "Đã có mặt ở phòng khách: " + list(view.arrivals) + "." : "Trời sáng. Mọi người đang tới phòng khách.";
+    const arrived = view.arrivals?.length ? "Đã có mặt ở quảng trường: " + list(view.arrivals) + "." : "Trời sáng. Mọi người đang tới quảng trường.";
     return (view.you_died ? "Bạn đã bị loại trong đêm qua. " : "") + arrived;
   }
-  if (view.phase.startsWith("day_")) {
+  // Cổ vật chỉ được công bố sau khi khoá phiếu (`lucky_vote_result`).
+  const lucky = view.lucky_vote_result;
+  const doubled = lucky?.double_voters.length
+    ? ITEMS.sword.name + ": phiếu của " + list(lucky.double_voters) + " được tính gấp đôi." : "";
+  if (view.effect?.type === "vote_execution") {
+    return ["Dân làng ném " + nameOf(view.effect.player_id) + " vào đống lửa.", doubled].filter(Boolean).join(" ");
+  }
+  if (view.effect?.type === "shield_break") {
+    return [ITEMS.shield.name + " vỡ, cứu " + nameOf(view.effect.player_id) + " khỏi lượt vote.", doubled].filter(Boolean).join(" ");
+  }
+  if (view.phase.startsWith("day_") || view.phase === "lucky_day") {
     return view.last_deaths.length
       ? "Đêm qua: " + list(view.last_deaths) + " bị loại."
       : "Đêm qua không ai bị loại.";
   }
   if (view.round === 1) return "";
-  if (!view.eliminated) return "Cuộc bỏ phiếu vừa rồi không loại ai.";
+  const items = [
+    lucky?.shielded ? ITEMS.shield.name + " đã cứu " + nameOf(lucky.shielded) + " khỏi lượt vote." : "",
+    doubled,
+  ].filter(Boolean).join(" ");
+  if (!view.eliminated) return ["Cuộc bỏ phiếu vừa rồi không loại ai.", items].filter(Boolean).join(" ");
   const chain = view.last_deaths.filter((id) => id !== view.eliminated);
-  return "Dân làng đã loại " + nameOf(view.eliminated) + "." +
-    (chain.length ? " Chết theo: " + list(chain) + "." : "");
+  return ["Dân làng đã loại " + nameOf(view.eliminated) + ".",
+    chain.length ? "Chết theo: " + list(chain) + "." : "", items].filter(Boolean).join(" ");
 }
 
 // Bot và người chơi có thể nhắc mã ghế (P03) trong tin: đổi thành tên.
@@ -401,15 +464,18 @@ function renderGame() {
   const night = view.phase === "pair" || view.phase.startsWith("night");
   $("game").dataset.night = String(night);
   $("round-label").textContent = "Phòng " + match.code + " · Vòng " + view.round;
-  $("phase-label").textContent = night ? "Đêm xuống" :
-    { day_arrival: "Trời sáng", day_discussion: "Thảo luận", day_vote: "Bỏ phiếu" }[view.phase] || "Đang chơi";
+  $("phase-label").textContent = view.phase === "night_housing" ? "Về nhà" : night ? "Đêm xuống" :
+    { day_arrival: "Trời sáng", day_discussion: "Thảo luận", day_vote: "Bỏ phiếu", lucky_day: "Ngày may mắn" }[view.phase] || "Đang chơi";
   // Tín hiệu riêng cho người bị loại trong đêm: báo một lần mỗi lần tập trung.
   if (view.phase === "day_arrival" && view.you_died && deathNoticeFor !== match.phase_id) {
     deathNoticeFor = match.phase_id;
     notice("Bạn đã bị loại trong đêm qua. Bạn vẫn có thể theo dõi đến hết ván.", "error");
   }
   $("round-news").textContent = roundNews(view);
-  renderStage($("stage"), match);
+  village.update(match, { withNames });
+  // Chân dung đi cùng nhân vật trên bản đồ, không phụ thuộc vai.
+  const portrait = portraitUrl(view.players.findIndex((p) => p.player_id === match.me));
+  if ($("portrait").getAttribute("src") !== portrait) $("portrait").src = portrait;
   $("player-role").textContent = roleName(view.role);
   $("role-detail").textContent = "Phe " + (factions[view.faction] || view.faction) + ". " + (roles[view.role]?.[1] || "");
   const info = [];
@@ -419,6 +485,7 @@ function renderGame() {
     info.push("Phiếu cắn: " + (votes.join(", ") || "chưa có phiếu"));
   }
   if (view.strikes_remaining > 1) info.push("Còn " + view.strikes_remaining + " lượt cắn đêm nay");
+  if (view.night_shield) info.push(NIGHT_SHIELD);
   if (view.partner) info.push("Tình Nhân: " + nameOf(view.partner.player_id) + " (" + roleName(view.partner.role) + ")");
   if (view.inspections?.length) {
     info.push("Đã soi: " + view.inspections.map((item) =>
@@ -445,6 +512,7 @@ function updateClock() {
 function submitAction(action, confirmation = "Đã gửi tin nhắn.") {
   if (!match || awaitingAction) return false;
   if (!send("action", { phase_id: match.phase_id, action })) return false;
+  outbox.push("panel");
   pendingActionText = confirmation;
   pendingAction = action;
   $("action-status").textContent = "Đang gửi…";
@@ -453,15 +521,18 @@ function submitAction(action, confirmation = "Đã gửi tin nhắn.") {
   return true;
 }
 
-function targetSelect(targets, id) {
+function targetSelect(targets, id, allies = []) {
   const select = element("select");
   select.id = id;
   select.required = true;
   const empty = element("option", "Chọn người chơi");
   empty.value = "";
   select.appendChild(empty);
-  for (const target of targets) {
-    const option = element("option", nameOf(target));
+  // Sói con cùng đàn vẫn cắn được, nên ghi rõ để không ai cắn nhầm đồng đội.
+  const ordered = [...targets.filter((t) => !allies.includes(t)), ...targets.filter((t) => allies.includes(t))];
+  for (const target of ordered) {
+    const label = allies.includes(target) ? nameOf(target) + " (Sói con, đồng đội)" : nameOf(target);
+    const option = element("option", label);
     option.value = target;
     select.appendChild(option);
   }
@@ -480,7 +551,20 @@ function actionGuide(view, actions) {
   const me = view.players.find((player) => player.player_id === match.me);
   // Lúc tập trung, `players` còn là trạng thái trước đêm, nên dựa vào `you_died`.
   if (!me?.alive || view.you_died) return "Bạn đã bị loại. Bạn vẫn có thể theo dõi đến hết ván.";
-  if (view.phase === "day_arrival") return "Mọi người đang lần lượt tới phòng khách. Thảo luận mở khi tất cả người còn sống đã có mặt.";
+  if (view.phase === "day_arrival") return "Mọi người đang lần lượt tới quảng trường. Thảo luận mở khi tất cả người còn sống đã có mặt.";
+  if (view.phase === "night_housing") {
+    return view.village?.inside_home
+      ? "Bạn đã ở trong nhà và ở yên đến hết đêm."
+      : "Đi bằng phím mũi tên / WASD hoặc bấm lên mặt đất. Đứng ở ô trước cửa rồi bấm F (hoặc nút Vào nhà). Hết 15 giây, ai ở ngoài được đưa vào nhà.";
+  }
+  if (view.phase === "lucky_day") {
+    const held = ITEMS[view.village?.held_item];
+    return held
+      ? "Bạn đang giữ " + held.name + ". " + held.effect + " Mỗi người chỉ giữ một món."
+      : "Đi tìm " + ITEMS.sword.name + " và " + ITEMS.shield.name + " quanh làng. Tới sát món đồ rồi bấm F để nhặt.";
+  }
+  if (view.effect?.type === "vote_execution") return "Cả làng đang xử người bị bỏ phiếu.";
+  if (view.effect?.type === "shield_break") return "Khiên đã vỡ. Lượt vote này không loại ai.";
   if (view.phase === "night_prepare") {
     return "Chuẩn bị: sắp đến lượt " + (preparing[view.next_phase] || "của bạn") + ". Lượt mở khi hết đếm ngược.";
   }
@@ -494,6 +578,19 @@ function actionGuide(view, actions) {
   return "Chưa đến lượt của bạn. Đồng hồ đang đếm đến sáng, trừ khi đến lượt kỹ năng của bạn.";
 }
 
+// Bấm tên phòng hoặc nhân vật trên bản đồ: điền vào ô chọn; chỉ có một kỹ năng thì gửi luôn.
+function pickTarget(playerId) {
+  const forms = [...$("action-list").querySelectorAll("form")];
+  for (const form of forms) {
+    const selects = [...form.querySelectorAll("select")];
+    const select = selects.length > 1 ? selects.find((item) => !item.value) : selects[0];
+    if (select && [...select.options].some((item) => item.value === playerId)) select.value = playerId;
+  }
+  if (forms.length === 1 && [...forms[0].querySelectorAll("select")].every((item) => item.value)) {
+    forms[0].requestSubmit();
+  }
+}
+
 function actionForm(option) {
   const form = element("form");
   const [name, description] = actionDescription(option.type);
@@ -504,7 +601,7 @@ function actionForm(option) {
     const id = "target-" + option.type + "-" + index;
     const label = element("label", count === 1 ? "Mục tiêu" : "Người thứ " + (index + 1));
     label.htmlFor = id;
-    const select = targetSelect(option.target_ids, id);
+    const select = targetSelect(option.target_ids, id, option.ally_target_ids || []);
     targets.push(select);
     form.append(label, select);
   }
@@ -521,6 +618,11 @@ function actionForm(option) {
       return;
     }
     const toSend = count === 1 ? { target_id: selected[0] } : { target_ids: selected };
+    const allies = option.ally_target_ids || [];
+    if (selected.some((pid) => allies.includes(pid))
+        && !window.confirm("Bạn đang vote cắn Sói con cùng đàn. Vẫn tiếp tục?")) {
+      return;
+    }
     const names = selected.map(nameOf).join(" và ");
     submitAction({ type: option.type, ...toSend }, "Đã ghi nhận: " + name + " — " + names + ".");
   });
@@ -536,7 +638,7 @@ function renderActionsAndChat() {
   $("turn-panel").dataset.active = String(Boolean(targetActions.length));
   $("turn-title").textContent = targetActions.length === 1 ? actionDescription(targetActions[0].type)[0]
     : targetActions.length > 1 ? "Chọn kỹ năng"
-    : match.view.phase === "night_prepare" ? "Sắp đến lượt bạn" : "Lượt của bạn";
+    : { night_prepare: "Sắp đến lượt bạn", night_housing: "Về nhà", lucky_day: "Tìm vật phẩm" }[match.view.phase] || "Lượt của bạn";
   $("phase-guide").textContent = actionGuide(match.view, targetActions);
   const signature = JSON.stringify([match.phase_id, targetActions]);
   const container = $("action-list");
@@ -550,10 +652,15 @@ function renderActionsAndChat() {
 
 function renderChat() {
   const view = match.view;
+  // Chat Sói chỉ có với Sói đang trong lượt săn.
+  $("wolf-tab").hidden = !view.wolf_chat;
+  if (!view.wolf_chat && chatChannel === "wolf") chatChannel = "public";
   const isPrivate = chatChannel === "private";
+  const isWolf = chatChannel === "wolf";
   const chatPeer = $("chat-peer");
-  $("public-tab").setAttribute("aria-pressed", String(!isPrivate));
+  $("public-tab").setAttribute("aria-pressed", String(chatChannel === "public"));
   $("private-tab").setAttribute("aria-pressed", String(isPrivate));
+  $("wolf-tab").setAttribute("aria-pressed", String(isWolf));
   $("peer-label").hidden = chatPeer.hidden = !isPrivate;
   const peerIds = view.players.map((p) => p.player_id).filter((playerId) => playerId !== match.me);
   const peerSignature = peerIds.join(",");
@@ -568,7 +675,7 @@ function renderChat() {
   const peer = chatPeer.value;
   const messages = isPrivate
     ? view.private_chat.filter((entry) => peer && [entry.player_id, entry.target_id].includes(peer))
-    : view.public_chat;
+    : isWolf ? view.wolf_chat : view.public_chat;
   const signature = JSON.stringify([chatChannel, peer, messages]);
   if (signature !== chatSignature) {
     chatSignature = signature;
@@ -579,32 +686,67 @@ function renderChat() {
       return row;
     });
     if (!rows.length) rows.push(element("li", isPrivate && !peer ? "Chọn người để xem tin nhắn riêng." : "Chưa có tin nhắn.", "muted"));
+    // Đang đọc tin cũ thì giữ nguyên chỗ; đang ở cuối, vừa đổi kênh hay vừa gửi tin thì theo tin mới.
+    const channel = chatChannel + ":" + peer;
+    const follow = log.dataset.channel !== channel || messages.at(-1)?.player_id === match.me ||
+      log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    const reading = log.scrollTop;
     log.replaceChildren(...rows);
-    log.scrollTop = log.scrollHeight;
+    log.dataset.channel = channel;
+    log.scrollTop = follow ? log.scrollHeight : reading;
   }
-  const kind = isPrivate ? "whisper" : "chat";
+  const kind = isPrivate ? "whisper" : isWolf ? "wolf_chat" : "chat";
   const option = view.allowed_actions.find((action) => action.type === kind);
   const enabled = Boolean(option && online() && (!isPrivate || option.target_ids.includes(peer)));
   $("chat-input").disabled = !enabled;
   $("chat-form").querySelector("button").disabled = !enabled || awaitingAction;
   $("chat-status").textContent = !option ? "Chat mở trong pha thảo luận."
-    : isPrivate && !enabled ? "Chọn một người đang trong ván để nhắn." : "";
+    : isPrivate && !enabled ? "Chọn một người đang trong ván để nhắn."
+    : isWolf ? "Chỉ đàn Sói đang săn đọc được." : "";
 }
 
 function renderResult() {
-  $("winner").textContent = match.view.winner === "hoa" ? "Ván hòa" :
-    "Phe " + (factions[match.view.winner] || match.view.winner) + " thắng";
-  const { eliminated, last_deaths: deaths } = match.view;
+  village.reset(); // ván sau dựng lại làng và sương mù
+  const { winner, effect, eliminated, last_deaths: deaths } = match.view;
+  $("winner").textContent = winner === "hoa" ? "Ván hòa" : "Phe " + (factions[winner] || winner) + " thắng";
   $("result-news").textContent = !deaths.length ? ""
     : (eliminated ? "Lượt bỏ phiếu cuối: " : "Đêm cuối: ") + deaths.map(nameOf).join(", ") + " bị loại.";
   $("restart").hidden = !match.is_host;
   $("reveal").replaceChildren(...(match.reveal || []).map((player) => playerCard(player, true)));
+  // `effect.type` cho biết ghế của mình thắng, thua hay hòa; màu theo phe thắng.
+  const outcome = outcomes[effect?.type];
+  $("result").dataset.winner = winner || "";
+  $("result").dataset.outcome = outcome ? effect.type : "";
+  $("outcome").hidden = !outcome;
+  $("outcome").textContent = outcome?.[0] || "";
   showScreen("result");
+  if (outcome) playOutcome(effect, outcome);
+}
+
+// Server gửi lại cùng `effect.id` (cả khi vào lại sau ván): mỗi kết quả chỉ mở cảnh một lần.
+function playOutcome(effect, [title, line]) {
+  const mark = "ma-soi:ket-qua:" + match.code + ":" + effect.id;
+  if (shownOutcome === mark) return;
+  shownOutcome = mark;
+  try {
+    if (sessionStorage.getItem(mark)) return;
+    sessionStorage.setItem(mark, "1");
+  } catch {
+    // Không lưu được thì tải lại trang sẽ thấy cảnh thêm một lần.
+  }
+  $("splash").dataset.outcome = effect.type;
+  $("splash-title").textContent = title;
+  $("splash-line").textContent = $("winner").textContent + ". " + line;
+  $("splash").hidden = false;
+  clearTimeout(splashTimer);
+  splashTimer = setTimeout(() => ($("splash").hidden = true), 4000);
 }
 
 function resetRoom({ keepRecent = false } = {}) {
   storeSession(null, { keepRecent });
   // Mỗi phòng đếm phase_id riêng, nên quên mốc báo chết của phòng cũ.
+  village.reset();
+  outbox = [];
   match = room = lobby = deathNoticeFor = null;
   awaitingAction = rejoining = false;
   chatChannel = "public";
@@ -623,7 +765,8 @@ $("show-join").addEventListener("click", () => showEntryMode(true));
 $("create-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const name = getName();
-  if (name) send("create_room", { name, seats: Number($("seats").value) });
+  // `village`: luồng về nhà, Sói bên đống lửa, ngày may mắn (docs/luat-choi.md).
+  if (name) send("create_room", { name, seats: Number($("seats").value), village: true });
 });
 $("join-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -653,6 +796,7 @@ $("timer-settings").addEventListener("submit", (event) => {
 });
 $("start").addEventListener("click", () => send("start"));
 $("restart").addEventListener("click", () => send("restart"));
+$("splash").addEventListener("click", () => ($("splash").hidden = true));
 $("copy-code").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(room);
@@ -670,6 +814,7 @@ for (const button of document.querySelectorAll(".leave")) {
 }
 $("public-tab").addEventListener("click", () => { chatChannel = "public"; renderChat(); });
 $("private-tab").addEventListener("click", () => { chatChannel = "private"; renderChat(); });
+$("wolf-tab").addEventListener("click", () => { chatChannel = "wolf"; renderChat(); });
 $("chat-peer").addEventListener("change", renderChat);
 $("chat-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -678,7 +823,7 @@ $("chat-form").addEventListener("submit", (event) => {
   if (!text) return;
   const action = chatChannel === "private"
     ? { type: "whisper", target_id: $("chat-peer").value, text }
-    : { type: "chat", text };
+    : { type: chatChannel === "wolf" ? "wolf_chat" : "chat", text };
   submitAction(action);
 });
 
