@@ -70,13 +70,14 @@ def route_to(start, destinations):
 
 
 class Village:
-    def __init__(self, rng):
+    def __init__(self, rng, *, previous_item_tiles=None):
         self.rng = rng
         self.phase = None
         self.homes = {}
         self.positions = {}
         self.sleeping = set()
         self.items = {}
+        self.previous_item_tiles = previous_item_tiles if previous_item_tiles is not None else set()
         self.bot_item_targets = {}
         self.held = {}
         self.next_move = {}
@@ -116,7 +117,10 @@ class Village:
         self.go_to_square(alive, spread=False)
         self.held.clear()
         self.bot_item_targets.clear()
-        self.items = dict(zip(ITEM_KINDS, self.rng.sample(SEARCH_TILES, len(ITEM_KINDS))))
+        available = [tile for tile in SEARCH_TILES if tile not in self.previous_item_tiles]
+        self.items = dict(zip(ITEM_KINDS, self.rng.sample(available, len(ITEM_KINDS))))
+        self.previous_item_tiles.clear()
+        self.previous_item_tiles.update(self.items.values())
 
     def finish_lucky_day(self):
         self.phase = None

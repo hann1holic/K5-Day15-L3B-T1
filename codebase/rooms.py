@@ -66,6 +66,7 @@ class Room:
         self.rng = rng
         self.village_enabled = village_enabled
         self.village = None
+        self.previous_item_tiles = set()
         self.members = {}
         self.host = None
         self.engine = None
@@ -199,7 +200,7 @@ class Room:
         self.rng.shuffle(bot_names)
         self.names.update(zip(bot_ids, bot_names))
         self.engine = GameEngine(players, rng=self.rng, fixed_night=True)
-        self.village = Village(self.rng) if self.village_enabled else None
+        self.village = Village(self.rng, previous_item_tiles=self.previous_item_tiles) if self.village_enabled else None
         self.night_phase_id = self.night_deadline = self.prepare_deadline = None
         self.dawn = None
         self.vote_scene = None

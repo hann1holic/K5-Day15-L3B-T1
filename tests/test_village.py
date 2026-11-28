@@ -3,7 +3,8 @@
 import unittest
 from random import Random
 
-from codebase.village import BLOCKED_TILES, HOUSE_DOORS, HOUSE_ENTRANCES, SQUARE, Village
+from codebase.rooms import Room
+from codebase.village import BLOCKED_TILES, HOUSE_DOORS, HOUSE_ENTRANCES, SEARCH_TILES, SQUARE, Village
 
 
 class HousingTest(unittest.TestCase):
@@ -77,6 +78,26 @@ class MovementTest(unittest.TestCase):
         self.assertEqual(self.village.act("P2", pick, 0), "item_unavailable")
         self.assertEqual(self.village.allowed_actions("P1"), [{"type": "move"}])
         self.assertEqual(self.village.finish_lucky_day(), {"P1": "shield"})
+
+
+class LuckyDaySpawnTest(unittest.TestCase):
+    def test_spawn_excludes_previous_tiles_even_after_restart(self):
+        room = Room("ABC123", 6, Random(0), {}, village_enabled=True)
+        host = room.join("Host", None)
+        room.start(host)
+        previous = set()
+        for index in range(3):
+            if index == 2:
+                room.engine.phase = "finished"
+                room.start(host, restart=True)
+            room.village.rng.seed(0)  # The same draw would repeat if the pool stayed the same.
+            room.village.begin_lucky_day(room.engine.living_ids())
+            tiles = set(room.village.items.values())
+            self.assertEqual(len(tiles), 2)
+            self.assertLessEqual(tiles, set(SEARCH_TILES))
+            self.assertTrue(tiles.isdisjoint(previous))
+            room.village.finish_lucky_day()
+            previous = tiles
 
 
 if __name__ == "__main__":
