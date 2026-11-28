@@ -1,51 +1,54 @@
 # Mô phỏng chi phí khi dùng thật — điền ở guide bước 4.2.
-# Ôn lại: ngày 13, ngày 1, ngày 14 · lab ngày 13, lab ngày 14.
-# Mọi số phải có nguồn (data / phỏng vấn / khảo sát / quy mô khoá có nguồn) hoặc ghi rõ "(tự ước tính)".
-# Chạy: python run.py simulate --try   (10 phiên, kiểm khung — làm trước CP3)
+# Mọi số có nguồn (khảo sát / đo trên bộ máy) hoặc ghi rõ "(tự ước tính)".
+# Chạy: python run.py simulate --try   (10 phiên, kiểm khung)
 #       python run.py simulate         (đủ số phiên dưới đây — bản nộp CP4)
-# Thay mọi dòng "(ví dụ)" bằng số và nguồn của nhóm; simulate nhắc nếu còn sót.
+#
+# Quy ước cho Ma Sói: 1 phiên = 1 ván có bot lấp ghế · 1 lượt = 1 lần một bot phải hành động (gọi agent.answer()).
+# Người dùng = người chơi mở ván có bot khi thiếu người. Giả định: mỗi lần thiếu người là một ván có bot (tự ước tính).
 
 sessions: 50        # số phiên mô phỏng — bản nộp ≥50
 seed: 42            # giữ cố định để chạy lại ra cùng chuỗi phiên
 
-users:              # số người dùng thật nếu đưa vào dùng — 3 kịch bản, ở quy mô thật của sản phẩm
-                    # track A: khoá học · track B–F: người dùng của sản phẩm / nhóm nhắm tới, nguồn công khai có link
-  low: 300
-  base: 700
-  high: 1000
-  source: "(ví dụ) track A — thay bằng số của nhóm. Cơ sở: lớp L3 hơn 700 học viên (README hackathon); thấp, cao: (tự ước tính)"
+users:              # số người chơi dùng bot mỗi tháng — 3 kịch bản
+  low: 233
+  base: 1000
+  high: 5000
+  source: "low: 700 học viên L3 (README hackathon) × 20/24 đã chơi game suy luận trong 3 tháng × 8/20 thiếu người ≥1 lần/tháng (khảo sát, evidence/survey/report.md) ≈ 233. base, high: (tự ước tính) game lan sang bạn bè ngoài lớp và vài cộng đồng board game, chưa có nguồn công khai"
 
-personas:           # ≥3 kiểu người dùng; share cộng lại = 1
-  - name: dung_it
-    share: 0.5              # tỉ lệ người dùng kiểu này
-    uses_per_month: 4       # số phiên / người / tháng
-    turns_per_session: 1    # số lượt hỏi trong một phiên
-    source: "(ví dụ) phỏng vấn P1, P3 — thay bằng nguồn của nhóm"
-  - name: dung_vua
-    share: 0.3
-    uses_per_month: 10
-    turns_per_session: 3
-    source: "(ví dụ) khảo sát n = 24, câu 3"
-  - name: dung_nhieu
-    share: 0.2
-    uses_per_month: 20
-    turns_per_session: 5
-    source: "(ví dụ) data/preclass: đếm số lượt / người — cách đếm ở evidence/data-mining.md"
-# Mỗi lượt hỏi lấy ngẫu nhiên một đầu vào trong eval/benchmark.csv (type thuong và kho).
-# Persona hỏi kiểu riêng: thêm vào persona đó
-#     types: [thuong, kho, tu_choi]
-# hoặc
-#     inputs: ["câu hỏi kiểu 1", "câu hỏi kiểu 2"]
+personas:           # chỉ 8/20 người khảo sát thiếu người ≥1 lần trong tháng qua (câu 18) — chia theo tần suất
+  - name: thieu_nguoi_nhieu
+    share: 0.125            # 1/8 người
+    uses_per_month: 4       # "Từ 4 lần trở lên" — lấy mức thấp nhất
+    turns_per_session: 10
+    source: "khảo sát n = 20, câu 18: 1/8 người báo ≥4 lần/tháng (#21). Lượt/ván: xem ghi chú turns bên dưới"
+  - name: thieu_nguoi_vua
+    share: 0.5              # 4/8 người
+    uses_per_month: 2.5     # "2–3 lần" — lấy điểm giữa (tự ước tính)
+    turns_per_session: 10
+    source: "khảo sát n = 20, câu 18: 4/8 người báo 2–3 lần/tháng (#3, #12, #16, #19)"
+  - name: thieu_nguoi_it
+    share: 0.375            # 3/8 người
+    uses_per_month: 1
+    turns_per_session: 10
+    source: "khảo sát n = 20, câu 18: 3/8 người báo 1 lần/tháng (#8, #13, #15)"
+# turns_per_session = 10 lượt bot / ván, đo + tính:
+#   - Bộ máy luật codebase/game_engine.py, 500 ván 6 ghế/cấu hình, hành động ngẫu nhiên hợp lệ: 3,4 lượt / bot / ván,
+#     ván trung bình 1,9 vòng.
+#   - Server web gọi mỗi bot thêm tối đa 1 lượt đáp lời ở mỗi pha thảo luận (codebase/server.py _bot_discussion):
+#     +1,9 → ≈ 5,3 lượt / bot / ván.
+#   - Số bot / ván theo khảo sát câu "Lúc đó thiếu mấy người?" (14 câu trả lời có số): 1 người ×6, 2 ×5, 3 ×2, ≥4 ×1
+#     → trung bình 1,86 bot → 1,86 × 5,3 ≈ 10 lượt / ván.
+# Mỗi lượt lấy ngẫu nhiên một view NPC trong eval/benchmark.csv (type thuong và kho) — đủ các pha đêm, thảo luận, vote.
 
-prices:             # USD / 1 triệu token — chép từ further-reading/model-prices.md của repo đề. ≥2 mức model
-  - model: gemini-3.1-flash-lite
-    input: 0.25
-    output: 1.50
-    source: "(ví dụ) https://ai.google.dev/gemini-api/docs/pricing · xem 25/11/2026"
-  - model: gemini-4-hydrogen
-    input: 1.50
-    output: 7.50
-    source: "(ví dụ) https://ai.google.dev/gemini-api/docs/pricing · xem 25/11/2026"
+prices:             # USD / 1 triệu token. ≥2 mức model
+  - model: claude-haiku-5-5
+    input: 0.10
+    output: 0.50
+    source: "Bảng giá API Anthropic cho Claude Haiku 5.5 (prompt ≤100K token), theo tài liệu claude-api cập nhật 03/11/2026, xem 28/11/2026 — đối chiếu lại với further-reading/model-prices.md của repo đề"
+  - model: claude-sonnet-5-5
+    input: 2.00
+    output: 10.00
+    source: "Bảng giá API Anthropic cho Claude Sonnet 5.5, theo tài liệu claude-api cập nhật 03/11/2026, xem 28/11/2026 — đối chiếu lại với further-reading/model-prices.md của repo đề"
 
 usd_to_vnd:         # tuỳ chọn: điền thì bản tóm tắt in thêm tiền Việt
   rate:
