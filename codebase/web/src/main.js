@@ -572,7 +572,7 @@ function actionGuide(view, actions) {
   if (actions.some((action) => action.type === "vote")) {
     return view.phase === "night_wolf"
       ? "Đến lượt phe Sói. Kết quả cú cắn sẽ được xử lý sau khi các vai khác hành động."
-      : "Đã hết giờ bàn bạc. Chọn mục tiêu và xác nhận phiếu trước khi hết giờ.";
+      : "Bấm người trên bản đồ là gửi phiếu ngay, đổi được tới khi phiếu khóa.";
   }
   if (actions.length) return "Chọn mục tiêu bên dưới rồi bấm nút kỹ năng. Mỗi kỹ năng chỉ hiện ở đúng lượt.";
   if (view.phase === "day_discussion") return "Bàn bạc trong chat chung hoặc chat riêng. Lượt bỏ phiếu sẽ mở khi hết giờ.";

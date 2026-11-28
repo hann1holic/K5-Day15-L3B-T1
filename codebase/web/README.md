@@ -25,7 +25,7 @@ Bản M1 có sảnh, phòng chờ, các pha ván, chat chữ chung và riêng, k
 
 Trong phòng chờ, chủ phòng có thể đổi thời gian thảo luận, bỏ phiếu và từng lượt đêm. Bấm **Lưu thời gian** trước khi bắt đầu. Mọi người nhìn thấy thời gian đã lưu. Mặc định là 90, 30 và 20 giây.
 
-Ban ngày, bấm **Bỏ phiếu loại** sau pha thảo luận. Ban đêm, chỉ người thuộc phe Sói thấy **Vote cắn** trong lượt săn. Khi tới lượt kỹ năng, chọn mục tiêu và bấm nút của vai. Game xử lý kết quả cú cắn sau khi các vai đêm đã hành động.
+Ban ngày, sau pha thảo luận, chọn mục tiêu rồi bấm **Bỏ phiếu loại**, hoặc bấm thẳng vào người đó trên bản đồ (gửi ngay). Ban đêm, chỉ người thuộc phe Sói thấy **Vote cắn** trong lượt săn. Khi tới lượt kỹ năng, chọn mục tiêu và bấm nút của vai. Game xử lý kết quả cú cắn sau khi các vai đêm đã hành động.
 
 Giao diện đọc các giá trị từ `lobby.timers`. Chủ phòng gửi `{"type":"set_timers","timers":{"discussion_seconds":90,"vote_seconds":30,"night_seconds":20}}`. Mỗi giá trị phải là số nguyên từ 1 đến 600 giây. Server xác thực quyền và gửi lại phòng chờ với thời gian đã lưu.
 
@@ -42,7 +42,8 @@ vẽ và điều khiển, `src/art.js` vẽ nhà, Sói, lửa, cổ vật; tên 
 |---|---|---|
 | Đi | Phím mũi tên / WASD, hoặc bấm lên mặt đất | Chạm lên mặt đất |
 | Vào nhà, nhặt đồ | **F** hoặc nút trên bản đồ | Nút trên bản đồ |
-| Chọn mục tiêu ban đêm | Bấm tên trên cửa nhà hoặc dùng ô chọn | Như máy tính |
+| Bỏ phiếu ban ngày, vote cắn | Bấm người hoặc tên cửa nhà (**gửi ngay**), hay dùng ô chọn rồi bấm nút | Như máy tính |
+| Dùng kỹ năng ban đêm | Bấm tên cửa nhà hoặc dùng ô chọn, rồi **bấm nút kỹ năng** | Như máy tính |
 | Xem quanh làng khi không được đi | Kéo bản đồ | Kéo bản đồ |
 
 - Mỗi bước gửi `{"type":"action","phase_id":n,"action":{"type":"move","dx":..,"dy":..}}` cách nhau 180 ms.

@@ -1030,12 +1030,12 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     if (dawn()) return "Trời sáng. Mọi người lần lượt ra quảng trường, xem ai vắng mặt.";
     if (isNight() && targets().size) {
       return phase() === "night_wolf"
-        ? "Đàn Sói họp bên đống lửa. Bàn ở Chat Sói, bấm tên trên cửa nhà để cắn."
+        ? "Đàn Sói họp bên đống lửa. Bàn ở Chat Sói; bấm tên trên cửa nhà là gửi phiếu cắn ngay."
         : "Đến lượt bạn: bấm tên trên cửa nhà để chọn, rồi bấm nút kỹ năng. Kéo để xem quanh làng.";
     }
     if (isNight()) return "Cả làng đang ngủ.";
     if (iAmDead()) return "Bạn đang theo dõi ván.";
-    return phase() === "day_vote" ? "Cả làng ở quảng trường. Bấm vào người bạn muốn loại." : "Cả làng ở quảng trường để bàn bạc.";
+    return phase() === "day_vote" ? "Bấm vào người bạn muốn loại là gửi phiếu ngay." : "Cả làng ở quảng trường để bàn bạc.";
   }
 
   // Cổ vật đang giữ; ban đêm là khiên còn hiệu lực (chỉ chủ khiên nhận `night_shield`).
