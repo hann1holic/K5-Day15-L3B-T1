@@ -29,11 +29,15 @@ def read_view(text: str):
             return None
     for option in view["allowed_actions"]:
         if not isinstance(option, dict) or option.get("type") not in {
-                "vote", "protect", "inspect", "mark", "save", "poison", "pair", "chat", "whisper"}:
+                "vote", "protect", "inspect", "mark", "save", "poison", "pair", "chat", "whisper",
+                "wolf_chat"}:
             return None
-        if option["type"] != "chat":
+        if option["type"] not in {"chat", "wolf_chat"}:
             targets = option.get("target_ids")
             if not isinstance(targets, list) or not all(isinstance(p, str) and p for p in targets):
+                return None
+            allies = option.get("ally_target_ids", [])
+            if not isinstance(allies, list) or any(pid not in targets for pid in allies):
                 return None
     if "wolf_peers" in view and (not isinstance(view["wolf_peers"], list)
                                 or not all(isinstance(p, str) for p in view["wolf_peers"])):
@@ -44,6 +48,9 @@ def read_view(text: str):
     if "inspections" in view and (not isinstance(view["inspections"], list)
                                  or not all(isinstance(p, dict) for p in view["inspections"])):
         return None
+    if "player_names" in view and (not isinstance(view["player_names"], dict)
+                                   or not all(isinstance(name, str) for name in view["player_names"].values())):
+        return None
     return view
 
 
@@ -51,11 +58,16 @@ def read_view(text: str):
 def legal_targets(view: dict, action_type: str) -> list:
     """legal_targets · Input: view, loại hành động · Output: ID hợp lệ · Tác động ngoài: không."""
     targets = []
+    allies = []
     for option in view["allowed_actions"]:
         if option["type"] == action_type:
             for target in option.get("target_ids", []):
                 if target not in targets:
                     targets.append(target)
+            if action_type == "vote" and view.get("phase") == "night_wolf":
+                allies.extend(option.get("ally_target_ids", []))
     if action_type == "vote":
-        targets = [p for p in targets if p not in view.get("wolf_peers", [])]
+        targets = [p for p in targets if p not in view.get("wolf_peers", []) or p in allies]
+        if view.get("phase") == "day_vote" and isinstance(view.get("partner"), dict):
+            targets = [p for p in targets if p != view["partner"].get("player_id")]
     return targets

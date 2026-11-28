@@ -15,20 +15,28 @@ from urllib.parse import urlsplit
 from websockets.asyncio.server import serve
 from websockets.exceptions import ConnectionClosed
 
-from .game_engine import FIXED_NIGHT_SLOTS
+from .game_engine import CHAT_ACTIONS, FIXED_NIGHT_SLOTS
 from .rooms import RoomError, Rooms
 
 
 # The existing terminal app and evaluator load agent.py as a top-level module.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from agent import answer
+from agent import answer, mentions_player, mock_day_vote_action, mock_discussion_line
 
 
 LOGGER = logging.getLogger(__name__)
 MAX_CHAT_LENGTH = 200
 BOT_TIMEOUT = 5
+DEBATE_BATCH_SIZE = 3
+DEBATE_REPLY_PAUSE = 15
 PREPARE_SECONDS = 5
 DAWN_STEP_SECONDS = 0.7
+VOTE_SCENE_SECONDS = 2
+HOUSING_SECONDS = 15
+LUCKY_DAY_SECONDS = 30
+MAP_UPDATE_SECONDS = 0.2
+BOT_HOUSING_STEP_SECONDS = 0.4
+BOT_WALK_SECONDS = 0.5
 BOT_MARGIN_SECONDS = 0.3
 SEND_TIMEOUT = 5
 ROOM_IDLE_SECONDS = 300
@@ -47,7 +55,7 @@ async def send(connection, message):
 
 
 def clip_text(action):
-    if (isinstance(action, dict) and action.get("type") in ("chat", "whisper")
+    if (isinstance(action, dict) and action.get("type") in CHAT_ACTIONS
             and isinstance(action.get("text"), str)):
         return {**action, "text": action["text"][:MAX_CHAT_LENGTH]}
     return action
@@ -66,7 +74,8 @@ def fallback(options, rng):
         if kind == "pair" and len(targets) >= 2:
             return {"type": kind, "target_ids": rng.sample(targets, 2)}
         if kind == "vote" and targets:
-            return {"type": kind, "target_id": rng.choice(targets)}
+            outsiders = [pid for pid in targets if pid not in option.get("ally_target_ids", ())]
+            return {"type": kind, "target_id": rng.choice(outsiders or targets)}
     return None
 
 
@@ -143,7 +152,10 @@ class GameServer:
     async def _enter(self, connection, message):
         kind = message["type"]
         if kind == "create_room":
-            room, member = self.rooms.create(message.get("name"), message.get("seats"), connection)
+            room, member = self.rooms.create(
+                message.get("name"), message.get("seats"), connection,
+                village_enabled=message.get("village", False),
+            )
         elif kind in {"join_room", "rejoin"}:
             room = self.rooms.get(message.get("code"))
             member = None
@@ -172,7 +184,8 @@ class GameServer:
             room.leave(member)
             if room.members:
                 pid = member.player_id
-                if (room.accepting and pid is not None and pid not in room.acted
+                map_phase = room.village is not None and room.village.phase is not None
+                if (room.accepting and not map_phase and pid is not None and pid not in room.acted
                         and room.engine.allowed_actions(pid)):
                     room.bot_tasks.append(asyncio.create_task(self._bot_turn(room, room.phase_id, pid)))
                 await self._broadcast(room)
@@ -206,6 +219,9 @@ class GameServer:
     async def _human_action(self, room, member, message):
         engine = room.engine
         action = message.get("action")
+        if room.village is not None and room.village.phase is not None:
+            await self._village_action(room, member, action, message.get("phase_id", room.phase_id))
+            return
         if not isinstance(action, dict):
             result = {"accepted": False, "reason": "invalid_action"}
         elif not room.accepting or engine is None or message.get("phase_id", room.phase_id) != room.phase_id:
@@ -214,7 +230,7 @@ class GameServer:
                 and not engine.allowed_actions(member.player_id)):
             # Answer before the engine so its reply cannot name a hidden private turn.
             result = {"accepted": False, "reason": "action_not_allowed"}
-        elif action.get("type") in ("chat", "whisper") and (
+        elif action.get("type") in CHAT_ACTIONS and (
                 not isinstance(action.get("text"), str) or len(action["text"]) > MAX_CHAT_LENGTH):
             result = {"accepted": False, "reason": "invalid_text"}
         else:
@@ -222,11 +238,26 @@ class GameServer:
         await send(member.connection, {"type": "action_result", **result})
         if result["accepted"]:
             # Chat never uses up a turn, and the witch may still have a second potion.
-            if action["type"] not in ("chat", "whisper") and (
+            if action["type"] not in CHAT_ACTIONS and (
                     engine.phase != "night_witch" or not engine.allowed_actions(member.player_id)):
                 room.acted.add(member.player_id)
+            if action["type"] == "chat":
+                self._queue_debate_reply(room, member.player_id, action["text"])
             self._check_ready(room)
             await self._broadcast_action(room, member.player_id)
+
+    async def _village_action(self, room, member, action, phase_id):
+        now = asyncio.get_running_loop().time()
+        if not isinstance(action, dict):
+            reason = "invalid_action"
+        elif not room.accepting or phase_id != room.phase_id or now >= room.turn_end:
+            reason = "action_not_allowed"
+        else:
+            reason = room.village.act(member.player_id, action, now)
+        result = {"type": "action_result", "accepted": reason is None}
+        if reason is not None:
+            result["reason"] = reason
+        await send(member.connection, result)
 
     def _check_ready(self, room):
         engine = room.engine
@@ -263,8 +294,13 @@ class GameServer:
     async def _play(self, room):
         engine = room.engine
         night_end = None
+        housed_round = None
         try:
             while engine.phase != "finished":
+                if (room.village is not None and engine.phase in {"pair", "night_wolf"}
+                        and housed_round != engine.round):
+                    await self._play_village_phase(room, "night_housing", HOUSING_SECONDS)
+                    housed_round = engine.round
                 async with room.lock:
                     room.phase_id += 1
                     phase_id = room.phase_id
@@ -309,22 +345,51 @@ class GameServer:
                     remaining = max(0, end - asyncio.get_running_loop().time())
                     with suppress(asyncio.TimeoutError):
                         await asyncio.wait_for(room.ready.wait(), timeout=remaining)
+                scene_end = None
                 async with room.lock:
                     room.accepting = False
                     # Bots whose model call ran out of time still take a legal default.
                     pending = room.names if engine.phase == "pair" else sorted(room.bots - room.acted)
                     for pid in pending:
-                        action = fallback(engine.allowed_actions(pid), room.rng)
+                        if engine.phase == "day_vote":
+                            action = mock_day_vote_action(engine.view(pid))
+                        else:
+                            action = fallback(engine.allowed_actions(pid), room.rng)
                         if action is not None:
                             engine.submit_action(pid, action)
                     dawn_views = room.capture_dawn_views() if phase == "night_hunter" else None
+                    before_vote = engine.view(next(iter(room.names))) if phase == "day_vote" else None
                     engine.advance()
+                    if before_vote is not None:
+                        if room.village is not None:
+                            room.village.held.clear()
+                        after_vote = engine.view(before_vote["player_id"])
+                        shielded = after_vote.get("lucky_vote_result", {}).get("shielded")
+                        target = shielded or after_vote["eliminated"]
+                        if target is not None:
+                            kind = "shield_break" if shielded else "vote_execution"
+                            scene_end = asyncio.get_running_loop().time() + VOTE_SCENE_SECONDS
+                            deadline = int((time.time() + VOTE_SCENE_SECONDS) * 1000)
+                            room.begin_vote_scene(before_vote, kind, target, deadline)
+                            await self._broadcast(room)
                     if dawn_views is not None:
                         room.begin_dawn(dawn_views)
                 await self._cancel_bots(room)
+                if scene_end is not None:
+                    await asyncio.sleep(max(0, scene_end - asyncio.get_running_loop().time()))
+                    async with room.lock:
+                        if engine.phase != "finished":
+                            room.vote_scene = None
                 if dawn_views is not None:
                     await self._play_dawn(room)
+                    if room.village is not None and engine.phase == "day_discussion":
+                        if engine.round % 2 == 0:
+                            await self._play_village_phase(room, "lucky_day", LUCKY_DAY_SECONDS)
+                        else:
+                            async with room.lock:
+                                room.village.go_to_square(engine.living_ids())
             async with room.lock:
+                room.dawn = room.vote_scene = None
                 room.phase_id += 1
                 room.deadline = None
                 room.acted.clear()
@@ -346,10 +411,46 @@ class GameServer:
         room.accepting = True
         room.turn_end = end
         self._check_ready(room)
-        room.bot_tasks = [
-            asyncio.create_task(self._bot_turn(room, phase_id, pid))
-            for pid in sorted(room.bots) if room.engine.allowed_actions(pid)
-        ]
+        bots = [pid for pid in sorted(room.bots) if room.engine.allowed_actions(pid)]
+        if room.engine.phase == "day_discussion":
+            room.bot_discussion_replies.clear()
+            if bots:
+                room.discussion_chat_start = len(room.engine.view(bots[0])["public_chat"])
+            room.bot_tasks = [asyncio.create_task(self._bot_discussion(room, phase_id, bots))] if bots else []
+            return
+        room.bot_tasks = [asyncio.create_task(self._bot_turn(room, phase_id, pid)) for pid in bots]
+
+    async def _bot_discussion(self, room, phase_id, bots):
+        # Give later speakers something public to respond to before starting more calls.
+        loop = asyncio.get_running_loop()
+        opened_at = loop.time()
+        reply_at = opened_at + min(DEBATE_REPLY_PAUSE, (room.turn_end - opened_at) / 3)
+        await self._bot_turn(room, phase_id, bots[0])
+        for start in range(1, len(bots), DEBATE_BATCH_SIZE):
+            batch = bots[start:start + DEBATE_BATCH_SIZE]
+            await asyncio.gather(*(self._bot_turn(room, phase_id, pid) for pid in batch))
+
+        # Leave a window for human input, then let bots revisit the discussion.
+        await asyncio.sleep(max(0, reply_at - loop.time()))
+        for start in range(0, len(bots), DEBATE_BATCH_SIZE):
+            async with room.lock:
+                if not room.accepting or room.phase_id != phase_id or loop.time() >= room.turn_end:
+                    return
+                batch = [pid for pid in bots[start:start + DEBATE_BATCH_SIZE]
+                         if pid not in room.bot_discussion_replies]
+                room.bot_discussion_replies.update(batch)
+            await asyncio.gather(*(self._bot_turn(room, phase_id, pid, rebuttal=True) for pid in batch))
+
+    def _queue_debate_reply(self, room, speaker, text):
+        replies = room.bot_discussion_replies
+        candidates = (room.bots & room.acted) - replies - {speaker}
+        for pid in sorted(candidates):
+            if room.engine.allowed_actions(pid) and mentions_player(text, pid, room.names[pid]):
+                replies.add(pid)
+                room.bot_tasks.append(asyncio.create_task(self._bot_turn(
+                    room, room.phase_id, pid, rebuttal=True, reply_to={"player_id": speaker, "text": text.strip()},
+                )))
+                break
 
     async def _play_dawn(self, room):
         async with room.lock:
@@ -361,7 +462,48 @@ class GameServer:
                 await self._broadcast(room)
         await asyncio.sleep(DAWN_STEP_SECONDS)
         async with room.lock:
-            room.dawn = None
+            if room.engine.phase != "finished":
+                room.dawn = None
+
+    async def _play_village_phase(self, room, phase, seconds):
+        loop = asyncio.get_running_loop()
+        village = room.village
+        bot_step_seconds = BOT_HOUSING_STEP_SECONDS if phase == "night_housing" else BOT_WALK_SECONDS
+        async with room.lock:
+            alive = room.engine.living_ids()
+            if phase == "night_housing":
+                village.begin_housing(alive)
+            else:
+                village.begin_lucky_day(alive)
+            room.phase_id += 1
+            room.acted.clear()
+            room.turn_end = loop.time() + seconds
+            room.deadline = int((time.time() + seconds) * 1000)
+            room.accepting = True
+            village.dirty = False
+            await self._broadcast(room)
+        next_bot_step = loop.time() + bot_step_seconds
+        while loop.time() < room.turn_end:
+            await asyncio.sleep(min(MAP_UPDATE_SECONDS, max(0, room.turn_end - loop.time())))
+            async with room.lock:
+                now = loop.time()
+                if now >= room.turn_end:
+                    break
+                if now >= next_bot_step:
+                    if phase == "night_housing":
+                        village.bots_go_home(room.bots, now)
+                    else:
+                        village.bots_search(room.bots, now)
+                    next_bot_step = now + bot_step_seconds
+                if village.dirty:
+                    village.dirty = False
+                    await self._broadcast(room)
+        async with room.lock:
+            room.accepting = False
+            if phase == "night_housing":
+                village.finish_housing()
+            else:
+                room.engine.set_day_items(village.finish_lucky_day())
 
     async def _cancel_bots(self, room):
         tasks, room.bot_tasks = room.bot_tasks, []
@@ -388,34 +530,78 @@ class GameServer:
         except Exception:
             return None
 
-    async def _bot_turn(self, room, phase_id, player_id):
+    def _bot_view(self, room, player_id, rebuttal=False, reply_to=None):
+        view = room.engine.view(player_id)
+        if view["phase"] in {"day_discussion", "day_vote"}:
+            view["player_names"] = room.names.copy()
+        if view["phase"] == "day_discussion":
+            name = room.names[player_id]
+            recent = []
+            for message in reversed(view["public_chat"][room.discussion_chat_start:]):
+                if message["player_id"] == player_id:
+                    break
+                recent.append(message)
+            if reply_to not in recent:
+                reply_to = next((m for m in recent if mentions_player(m["text"], player_id, name)), None)
+            view["debate_turn"] = "rebuttal" if rebuttal else "opening"
+            view["reply_to"] = reply_to or (recent[0] if recent else None)
+        return view
+
+    async def _bot_turn(self, room, phase_id, player_id, *, rebuttal=False, reply_to=None):
         # Leave time for the fallback before the phase closes, even with short timers.
-        now = asyncio.get_running_loop().time()
-        end = min(now + BOT_TIMEOUT, room.turn_end - BOT_MARGIN_SECONDS)
-        for _ in range(2):
+        loop = asyncio.get_running_loop()
+        end = min(loop.time() + BOT_TIMEOUT, room.turn_end - BOT_MARGIN_SECONDS)
+        attempts = 2
+        chatted = False
+        while attempts:
             async with room.lock:
-                if not room.accepting or room.phase_id != phase_id:
+                if not room.accepting or room.phase_id != phase_id or loop.time() >= room.turn_end:
                     return
-                view = room.engine.view(player_id)
-            action = await self._choose(room, view, end - asyncio.get_running_loop().time())
+                view = self._bot_view(room, player_id, rebuttal, reply_to)
+                if rebuttal and view["reply_to"] is None:
+                    room.bot_discussion_replies.discard(player_id)
+                    return
+            action = await self._choose(room, view, end - loop.time())
             async with room.lock:
                 if not room.accepting or room.phase_id != phase_id:
                     return
                 if action is None:
                     break
                 action = clip_text(action)
+                if chatted and isinstance(action, dict) and action.get("type") == "wolf_chat":
+                    # One line at the bonfire per bot; a second chat counts as a failed try.
+                    attempts -= 1
+                    continue
                 if room.engine.submit_action(player_id, action)["accepted"]:
+                    if action["type"] == "wolf_chat":
+                        # The chat is free: the vote that follows gets its own model budget.
+                        chatted = True
+                        end = min(loop.time() + BOT_TIMEOUT, room.turn_end - BOT_MARGIN_SECONDS)
+                        await self._broadcast_action(room, player_id)
+                        continue
                     room.acted.add(player_id)
+                    if action["type"] == "chat":
+                        self._queue_debate_reply(room, player_id, action["text"])
                     self._check_ready(room)
                     await self._broadcast_action(room, player_id)
                     return
+                attempts -= 1
         async with room.lock:
             if not room.accepting or room.phase_id != phase_id:
                 return
-            action = fallback(room.engine.allowed_actions(player_id), room.rng)
+            view = self._bot_view(room, player_id, rebuttal, reply_to)
+            options = view["allowed_actions"]
+            if view["phase"] == "day_discussion" and options:
+                action = {"type": "chat", "text": mock_discussion_line(view)}
+            elif view["phase"] == "day_vote":
+                action = mock_day_vote_action(view)
+            else:
+                action = fallback(options, room.rng)
             if action is not None:
                 room.engine.submit_action(player_id, action)
             room.acted.add(player_id)
+            if action is not None and action["type"] == "chat":
+                self._queue_debate_reply(room, player_id, action["text"])
             self._check_ready(room)
             if action is not None:
                 await self._broadcast_action(room, player_id)

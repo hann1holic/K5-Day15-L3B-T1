@@ -5,6 +5,7 @@ import secrets
 from dataclasses import dataclass, field
 
 from .game_engine import GameEngine, deal_roles
+from .village import Village
 
 
 ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -49,12 +50,23 @@ class Dawn:
     arrivals: list = field(default_factory=list)
 
 
+@dataclass
+class VoteScene:
+    kind: str
+    player_id: str
+    round: int
+    last_night_deaths: list[str]
+
+
 class Room:
-    def __init__(self, code, seats, rng, timers):
+    def __init__(self, code, seats, rng, timers, *, village_enabled=False):
         self.code = code
         self.timers = timers.copy()
         self.seats = seats
         self.rng = rng
+        self.village_enabled = village_enabled
+        self.village = None
+        self.previous_item_tiles = set()
         self.members = {}
         self.host = None
         self.engine = None
@@ -69,9 +81,12 @@ class Room:
         self.night_phase_id = None
         self.prepare_deadline = None
         self.dawn = None
+        self.vote_scene = None
         self.accepting = False
         self.acted = set()
         self.bot_tasks = []
+        self.bot_discussion_replies = set()
+        self.discussion_chat_start = 0
         self.bot_workers = set()
         self.turn_end = 0
         self.idle_task = None
@@ -123,9 +138,11 @@ class Room:
     def back_to_lobby(self):
         """Drop a broken match so the host can start a fresh one."""
         self.engine = None
+        self.village = None
         self.accepting = False
         self.deadline = self.night_deadline = self.night_phase_id = self.prepare_deadline = None
         self.dawn = None
+        self.vote_scene = None
         self.acted.clear()
         self.names = {}
         self.bots = set()
@@ -183,8 +200,10 @@ class Room:
         self.rng.shuffle(bot_names)
         self.names.update(zip(bot_ids, bot_names))
         self.engine = GameEngine(players, rng=self.rng, fixed_night=True)
+        self.village = Village(self.rng, previous_item_tiles=self.previous_item_tiles) if self.village_enabled else None
         self.night_phase_id = self.night_deadline = self.prepare_deadline = None
         self.dawn = None
+        self.vote_scene = None
 
     def joined_message(self, member):
         return {"type": "joined", "code": self.code, "token": member.token,
@@ -198,6 +217,7 @@ class Room:
                         for m in self.members.values()],
             "bots_on_start": self.seats - len(self.members),
             "timers": self.timers.copy(),
+            "village_enabled": self.village_enabled,
             "can_start": member is self.host,
         }
 
@@ -211,6 +231,12 @@ class Room:
         self.dawn = Dawn(previous_views, set(after["last_deaths"]), survivors)
         self.phase_id += 1
 
+    def begin_vote_scene(self, before_vote, kind, player_id, deadline):
+        self.vote_scene = VoteScene(kind, player_id, before_vote["round"], before_vote["last_deaths"])
+        self.phase_id += 1
+        self.deadline = deadline
+        self.acted.clear()
+
     def state_message(self, member):
         view = self.engine.view(member.player_id)
         deadline = self.deadline
@@ -219,13 +245,35 @@ class Room:
         reveal = self.engine.reveal()
         if self.dawn is not None:
             view = dict(self.dawn.previous_views[member.player_id])
+            view.pop("night_shield", None)
             view.update(
                 phase="day_arrival", allowed_actions=[], last_deaths=[], eliminated=None,
                 winner=None, arrivals=self.dawn.arrivals[:],
                 you_died=member.player_id in self.dawn.deaths,
             )
+            if view["you_died"]:
+                view["effect"] = {"type": "night_slash", "id": phase_id, "player_id": member.player_id}
             deadline = reveal = None
             acted = False
+        elif self.vote_scene is not None:
+            scene = self.vote_scene
+            view.update(
+                phase="day_vote", round=scene.round, allowed_actions=[],
+                last_deaths=scene.last_night_deaths[:], winner=None,
+                effect={"type": scene.kind, "id": phase_id, "player_id": scene.player_id},
+            )
+            reveal = None
+            acted = False
+        elif self.village is not None and self.village.phase is not None:
+            view["phase"] = self.village.phase
+            view["allowed_actions"] = self.village.allowed_actions(member.player_id)
+            acted = False
+        elif view["phase"] == "finished" and deadline is None:
+            winner = view["winner"]
+            outcome = "draw" if winner == "hoa" else (
+                "victory" if view["faction"] == winner else "defeat"
+            )
+            view["effect"] = {"type": outcome, "id": phase_id, "player_id": member.player_id}
         elif view["phase"].startswith("night_") or view["phase"] == "pair":
             preparing = self.prepare_deadline is not None and bool(view["allowed_actions"])
             if preparing or not self.accepting or not view["allowed_actions"]:
@@ -239,9 +287,14 @@ class Room:
                     phase_id = self.night_phase_id
                 view["allowed_actions"] = []
                 acted = False
-        if view["phase"] in {"night_wait", "night_prepare", "day_arrival"}:
-            view.pop("strikes_remaining", None)
-            view.pop("wolf_votes", None)
+        if self.village is not None and self.dawn is None:
+            pack = view.get("wolf_pack", ()) if view["phase"] == "night_wolf" else ()
+            view["village"] = self.village.view(member.player_id, view["phase"], pack)
+        if self.vote_scene is not None or view["phase"] in {
+            "night_wait", "night_prepare", "night_housing", "day_arrival",
+        }:
+            for key in ("strikes_remaining", "wolf_votes", "wolf_pack", "wolf_chat"):
+                view.pop(key, None)
         return {
             "type": "state", "code": self.code, "me": member.player_id,
             "names": self.names.copy(), "deadline": deadline, "phase_id": phase_id,
@@ -255,13 +308,15 @@ class Rooms:
         self._rooms = {}
         self.default_timers = default_timers.copy()
 
-    def create(self, name, seats, connection):
+    def create(self, name, seats, connection, *, village_enabled=False):
         seats = seat_count(seats)
+        if type(village_enabled) is not bool:
+            raise RoomError("bad_message", "Cấu hình làng cần giá trị true hoặc false.")
         while True:
             code = "".join(secrets.choice(ROOM_ALPHABET) for _ in range(4))
             if code not in self._rooms:
                 break
-        room = Room(code, seats, self.rng, self.default_timers)
+        room = Room(code, seats, self.rng, self.default_timers, village_enabled=village_enabled)
         member = room.join(name, connection)
         self._rooms[code] = room
         return room, member
