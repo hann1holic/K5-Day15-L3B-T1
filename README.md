@@ -99,14 +99,16 @@ Mỗi tin `state` có `is_host` để giao diện cập nhật nút Chơi lại 
 
 | Thành phần | Thật / Giả | Ghi chú |
 |---|---|---|
-| Lời gọi AI ở quyết định trung tâm | **Thật** (bắt buộc từ CP3) | Model: ____ |
-|  |  |  |
+| Lời gọi AI ở quyết định trung tâm | **Thật** (bắt buộc từ CP3) | Model: `claude-haiku-5-5` (Anthropic), gọi qua `codebase/ai.py`; `eval/run-2.csv` ghi token thật |
+| Dữ liệu ván trong bộ câu thử | Giả | Tình huống ván do nhóm dựng; 7/21 câu dùng lời nói nguyên văn từ khảo sát (`evidence/survey/report.md` mục 6) |
 
 ## Dùng AI vào việc gì
 
 2–3 dòng (bắt buộc): nhóm dùng công cụ AI nào để làm gì, người kiểm lại phần nào. Chi tiết: [docs/ai-usage.md](docs/ai-usage.md). Coding agent đọc [AGENTS.md](AGENTS.md).
 
-____
+- **NPC trong ván:** `claude-haiku-5-5` chọn hành động và lời thoại cho ghế NPC. Bộ máy luật kiểm lại mọi hành động, lời thoại lộ vai bị thay bằng câu dự phòng.
+- **Coding agent (Claude Code):** viết và review code server, bộ máy, giao diện, viết unit test, thêm 7 câu thử NPC15–NPC21 từ trích dẫn khảo sát. Nhóm duyệt từng PR trước khi merge vào `dev`.
+- **Không dùng AI để** tạo người trả lời khảo sát, trích dẫn hay kết quả các lượt chạy. Cột `pass` trong `eval/run-*.csv` do người chấm.
 
 ## File mẫu — điền ở bước nào
 
