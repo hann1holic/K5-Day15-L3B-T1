@@ -7,6 +7,7 @@ import "./theme.css";
 import { portraitUrl } from "./sprites.js";
 import { createVillage } from "./village.js";
 import { ITEMS, NIGHT_SHIELD } from "./items.js";
+import { compact } from "./screen.js";
 
 const $ = (id) => document.getElementById(id);
 const screens = ["home", "lobby", "game", "result"];
@@ -93,7 +94,7 @@ const village = createVillage($("stage"), {
   insets() {
     const side = document.querySelector(".game-side");
     if ($("game").classList.contains("hud-closed")) return { right: 0, bottom: 0 };
-    return window.innerWidth < 760
+    return compact()
       ? { right: 0, bottom: side.offsetHeight }
       : { right: side.offsetWidth + 12, bottom: 0 };
   },
@@ -578,21 +579,34 @@ function actionGuide(view, actions) {
   return "Chưa đến lượt của bạn. Đồng hồ đang đếm đến sáng, trừ khi đến lượt kỹ năng của bạn.";
 }
 
-// Bấm tên phòng hoặc nhân vật trên bản đồ: điền vào ô chọn; chỉ có một kỹ năng thì gửi luôn.
+// Bấm tên cửa nhà hoặc nhân vật trên bản đồ: điền vào ô chọn. Phiếu bầu gửi luôn;
+// kỹ năng (bình, soi, bảo vệ, ghim, ghép đôi) phải bấm nút để xác nhận.
 function pickTarget(playerId) {
   const forms = [...$("action-list").querySelectorAll("form")];
-  for (const form of forms) {
+  const filled = forms.filter((form) => {
     const selects = [...form.querySelectorAll("select")];
     const select = selects.length > 1 ? selects.find((item) => !item.value) : selects[0];
-    if (select && [...select.options].some((item) => item.value === playerId)) select.value = playerId;
-  }
-  if (forms.length === 1 && [...forms[0].querySelectorAll("select")].every((item) => item.value)) {
+    if (!select || ![...select.options].some((item) => item.value === playerId)) return false;
+    select.value = playerId;
+    return true;
+  });
+  if (!filled.length) return;
+  if (forms.length === 1 && forms[0].dataset.kind === "vote") {
     forms[0].requestSubmit();
+    return;
   }
+  // Bảng đang ẩn thì mở lại để thấy nút xác nhận.
+  if ($("game").classList.contains("hud-closed")) $("hud-toggle").click();
+  const complete = filled.every((form) => [...form.querySelectorAll("select")].every((item) => item.value));
+  const buttons = filled.map((form) => "“" + form.querySelector("button").textContent + "”").join(" hoặc ");
+  $("action-status").textContent = "Đã chọn " + nameOf(playerId) + ". " +
+    (complete ? "Bấm " + buttons + " để xác nhận." : "Chọn thêm một người nữa.");
+  filled[0].querySelector("button").scrollIntoView({ block: "nearest" });
 }
 
 function actionForm(option) {
   const form = element("form");
+  form.dataset.kind = option.type;
   const [name, description] = actionDescription(option.type);
   form.appendChild(element("p", description, "muted small"));
   const count = option.target_count || 1;
