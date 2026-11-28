@@ -31,6 +31,33 @@ Giao diện đọc các giá trị từ `lobby.timers`. Chủ phòng gửi `{"ty
 
 Kiểm tra bản build bằng `npm run build`.
 
+## Làng, đi lại và vật phẩm
+
+Giao diện luôn tạo phòng với `village: true`. Luật ở [docs/luat-choi.md](../../docs/luat-choi.md), giao thức ở
+[docs/giao-dien-van.md](../../docs/giao-dien-van.md). Làng vẽ chéo trên canvas theo dữ liệu `view.village`
+(kích thước, quảng trường, nhà, ô bị chặn, ghế lúc họp): `src/map.js` giữ hình học và tìm đường, `src/village.js`
+vẽ và điều khiển, `src/art.js` vẽ nhà, Sói, lửa, cổ vật; tên và công dụng cổ vật ở `src/items.js`.
+
+| Thao tác | Máy tính | Điện thoại |
+|---|---|---|
+| Đi | Phím mũi tên / WASD, hoặc bấm lên mặt đất | Chạm lên mặt đất |
+| Vào nhà, nhặt đồ | **F** hoặc nút trên bản đồ | Nút trên bản đồ |
+| Chọn mục tiêu ban đêm | Bấm tên trên cửa nhà hoặc dùng ô chọn | Như máy tính |
+| Xem quanh làng khi không được đi | Kéo bản đồ | Kéo bản đồ |
+
+- Mỗi bước gửi `{"type":"action","phase_id":n,"action":{"type":"move","dx":..,"dy":..}}` cách nhau 180 ms.
+  Giao diện đoán trước vị trí; server từ chối bước nào thì nhân vật về chỗ server báo.
+- Người đứng ở toạ độ cửa là đã vào nhà nên không được vẽ. Nhà của người khác thì chữ **F** mờ đi.
+- Đàn Sói đang săn thấy nhau bên đống lửa (Sói thường và Sói con khác hình) và có thêm kênh **Chat Sói**.
+- `view.effect` phát một lần theo `id`: nhát chém cho người bị cắn, cảnh ném vào đống lửa hoặc khiên vỡ cho cả
+  phòng, màn thắng / thua / hòa khi hết ván.
+- Chủ Khiên Pridwen còn hiệu lực qua đêm (`view.night_shield`) thấy huy hiệu khiên; người khác không thấy.
+- Phòng không bật làng (tạo từ máy khách khác) vẫn xem được: mọi người đứng ở quảng trường, không đi lại.
+
 ## Hình và phong cách
 
-Khung và nút dùng ảnh của [RPGUI](https://github.com/RonenNess/RPGUI) (Ronen Ness, giấy phép zlib, xem `src/assets/rpgui/`). Font pixel VT323 (có dấu tiếng Việt) cài qua `@fontsource/vt323`. Kiểu nằm trong `src/theme-rpg.css`; sân làng vẽ ở `src/stage.js`, hình nhân vật hiện là ô màu tạm.
+- Nền, cây cỏ, trang phục nhân vật, chân dung: bộ [FLARE](https://github.com/flareteam/flare-game),
+  **CC-BY-SA 3.0**, phải ghi công; xem `src/assets/flare/README.md`.
+- Nhà, Sói, lửa, khiên và gươm: nhiều tác giả, mỗi nguồn một giấy phép (CC0, CC-BY, CC-BY-SA);
+  xem `src/assets/village/README.md`.
+- Font Be Vietnam Pro và Cormorant Garamond cài qua `@fontsource`. Kiểu nằm trong `src/theme.css` và `src/village.css`.

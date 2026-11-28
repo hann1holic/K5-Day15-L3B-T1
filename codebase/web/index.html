@@ -76,23 +76,27 @@
     <section id="game" hidden>
       <div class="screen-heading game-heading">
         <div><p id="round-label" class="eyebrow"></p><h1 id="phase-label"></h1><p id="round-news"></p></div>
-        <div class="heading-controls"><span id="timer" class="timer" aria-label="Thời gian còn lại"></span><button class="quiet leave" type="button">Rời phòng</button></div>
+        <div class="heading-controls"><span id="timer" class="timer" aria-label="Thời gian còn lại"></span><button id="hud-toggle" class="quiet" type="button">Ẩn bảng</button><button class="quiet leave" type="button">Rời phòng</button></div>
       </div>
-      <section id="turn-panel" class="panel turn-panel" aria-labelledby="turn-title">
-        <h2 id="turn-title">Lượt của bạn</h2>
-        <p id="phase-guide" class="muted"></p>
-        <div id="action-list" class="action-list"></div>
-        <p id="action-status" class="muted small" role="status"></p>
-        <details class="round-help">
-          <summary>Cách bỏ phiếu và dùng kỹ năng</summary>
-          <p><strong>Ban ngày:</strong> thảo luận rồi chọn một người để bỏ phiếu loại. Người nhiều phiếu nhất bị loại. Hòa phiếu thì không ai bị loại.</p>
-          <p><strong>Ban đêm:</strong> phe Sói vote cắn trước. Kết quả cắn chỉ được tính sau khi các vai dùng kỹ năng. Đến lượt của bạn, chọn mục tiêu và bấm nút tương ứng. Nếu chưa có nút, đồng hồ hiển thị thời gian còn lại của cả đêm.</p>
-        </details>
-      </section>
       <div class="game-grid">
-        <div class="table-board panel"><h2>Sân làng</h2><div id="stage" class="stage"></div></div>
+        <div class="table-board"><div id="stage" class="village" aria-label="Bản đồ làng"></div></div>
         <aside class="game-side" aria-label="Vai trò, hành động và trò chuyện">
+          <section id="turn-panel" class="panel turn-panel" aria-labelledby="turn-title">
+            <h2 id="turn-title">Lượt của bạn</h2>
+            <p id="phase-guide" class="muted"></p>
+            <div id="action-list" class="action-list"></div>
+            <p id="action-status" class="muted small" role="status"></p>
+            <details class="round-help">
+              <summary>Cách chơi</summary>
+              <p><strong>Đi lại:</strong> phím mũi tên / WASD, hoặc bấm lên mặt đất. Bấm <strong>F</strong> để vào nhà hoặc nhặt đồ.</p>
+              <p><strong>Tối đến:</strong> mỗi người có 15 giây để vào một căn nhà. Đứng ở ô ngay trước cửa rồi bấm F; nhà đã có chủ thì F mờ đi.</p>
+              <p><strong>Ban đêm:</strong> đàn Sói họp bên đống lửa, bàn ở Chat Sói và bấm tên trên cửa nhà để cắn. Kết quả cắn chỉ được tính sau khi các vai dùng kỹ năng. Đến lượt của bạn, chọn mục tiêu và bấm nút tương ứng.</p>
+              <p><strong>Ngày chẵn:</strong> sau khi tập trung có 30 giây tìm cổ vật. <strong>Gươm Excalibur</strong>: phiếu của bạn tính gấp đôi trong ngày. <strong>Khiên Pridwen</strong>: cứu bạn nếu bị vote loại; còn khiên sau lượt vote thì chặn cú cắn và bình độc đêm kế tiếp.</p>
+              <p><strong>Bỏ phiếu:</strong> người nhiều phiếu nhất bị ném vào đống lửa. Hòa phiếu thì không ai bị loại.</p>
+            </details>
+          </section>
           <div class="panel personal">
+            <img id="portrait" class="portrait" alt="">
             <p class="eyebrow">Vai của bạn</p>
             <h2 id="player-role"></h2>
             <p id="role-detail" class="muted"></p>
@@ -102,6 +106,7 @@
             <div class="tabs" aria-label="Kênh trò chuyện">
               <button id="public-tab" type="button" aria-pressed="true">Chat chung</button>
               <button id="private-tab" type="button" aria-pressed="false">Chat riêng</button>
+              <button id="wolf-tab" type="button" aria-pressed="false" hidden>Chat Sói</button>
             </div>
             <label id="peer-label" for="chat-peer" hidden>Nhắn với</label>
             <select id="chat-peer" hidden></select>
@@ -118,8 +123,9 @@
     </section>
 
     <section id="result" hidden>
+      <button id="splash" class="splash" type="button" hidden><strong id="splash-title"></strong><span id="splash-line"></span></button>
       <div class="screen-heading">
-        <div><p class="eyebrow">Kết quả ván</p><h1 id="winner"></h1><p id="result-news"></p></div>
+        <div><p id="outcome" class="outcome" hidden></p><p class="eyebrow">Kết quả ván</p><h1 id="winner"></h1><p id="result-news"></p></div>
         <div class="heading-controls"><button class="quiet leave" type="button">Rời phòng</button><button id="restart" class="primary" type="button" data-connection hidden>Chơi lại</button></div>
       </div>
       <div class="panel"><h2>Vai của cả bàn</h2><ul id="reveal" class="player-grid"></ul></div>
