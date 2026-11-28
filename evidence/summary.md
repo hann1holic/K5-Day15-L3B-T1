@@ -9,9 +9,9 @@
 |---|---|---|
 | Đào data (x/N, %, cách đếm chạy lại được, ≥5 ví dụ) | ☐ Chưa làm | `evidence/data-mining.md` |
 | Phỏng vấn (≥3 người ngoài nhóm, đúng người dùng) | ☐ Chưa làm | `evidence/interviews/P1.md`… |
-| Khảo sát (≥20 người ngoài nhóm, đúng người dùng) | ☑ Đủ 20 người đúng đối tượng. Còn chờ xác nhận người ngoài nhóm, xem dưới | [`evidence/survey/report.md`](survey/report.md) |
+| Khảo sát (≥20 người ngoài nhóm, đúng người dùng) | ☑ Đủ 20 người đúng đối tượng, ngoài nhóm | [`evidence/survey/report.md`](survey/report.md) |
 
-**Xác nhận người ngoài nhóm (nhóm điền):** form gửi qua kênh __; không thành viên nào của nhóm trả lời form: ☐ đã kiểm. Báo cáo khảo sát mục 1 ghi form không hỏi câu này.
+**Xác nhận người ngoài nhóm:** form được gửi qua nhóm chat Zalo/Messenger, server Discord và nhắn riêng cho bạn bè. ☑ Đã kiểm: không thành viên nào trong 4 người của nhóm điền form (nhóm tự xác nhận ngày 28/11). Form không có câu hỏi về việc này, nên không kiểm được từ bản xuất câu trả lời.
 
 ## 2. Số chính
 
@@ -54,7 +54,6 @@ Chỉ có một nguồn là khảo sát, nên chưa đối chiếu được gi�
 `evidence/hypothesis.md` chưa được ghi trước khi khảo sát, nên không đối chiếu được với giả thuyết viết trước. So với vấn đề nêu ở `spec.md` §1 (người rủ ván gặp cảnh thiếu người khi tới giờ chơi), khảo sát **ủng hộ**: 15/20 từng gặp, 8/20 gặp trong tháng qua, và mỗi lần thường chỉ thiếu 1–2 người, đúng với chỗ NPC cần lấp.
 
 Điều vẫn chưa biết:
-- Người trả lời có ở ngoài nhóm không.
 - Người chơi có chấp nhận chơi cùng NPC / AI thay người thật không. Form không hỏi câu này.
 - Trích dẫn nguyên văn về lần thiếu người.
 
