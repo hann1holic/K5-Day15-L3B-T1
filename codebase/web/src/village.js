@@ -798,9 +798,12 @@ export function createVillage(container, { onAction, onPick, insets = () => ({ r
     g.textBaseline = "middle";
     const picked = { fill: "rgba(70,16,12,.94)", line: "#e2563f", text: "#ffe3d8", weight: 2 };
     const chosen = targets();
-    // Biển ghim ở mép không được che dòng gợi ý.
-    if (mode === "overview" && !hint.hidden) {
-      placed.push({ x: hint.offsetLeft, y: hint.offsetTop, w: hint.offsetWidth, h: hint.offsetHeight });
+    // Biển và tên né dòng gợi ý và nút F, để không bị hai lớp chữ này che.
+    if (!hint.hidden) placed.push({ x: hint.offsetLeft, y: hint.offsetTop, w: hint.offsetWidth, h: hint.offsetHeight });
+    if (!interact.hidden) {
+      // Nút F canh giữa bằng translateX(-50%) nên mép trái lệch nửa bề rộng.
+      const { offsetLeft, offsetTop, offsetWidth: w, offsetHeight: h } = interact;
+      placed.push({ x: offsetLeft - w / 2, y: offsetTop, w, h });
     }
     // Biển tên cửa không được đè lên hình Sói.
     for (const actor of actors.values()) {
