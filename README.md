@@ -68,6 +68,21 @@ Gói miễn phí báo hết lượt: thêm `--wait 4` sau `eval` hoặc `simulat
 
 Nhóm dùng stack khác (Node, Streamlit, notebook…): sửa hàm `run_app()` trong `run.py` để `python run.py` vẫn chạy được bản chạy thử, và giữ `answer()` trong `codebase/agent.py` để `eval`, `simulate` chạy được.
 
+## Chạy server nhiều người
+
+Từ thư mục gốc, cài thư viện WebSocket và chạy server:
+
+~~~bash
+python -m pip install -r requirements.txt
+python -m codebase.server
+~~~
+
+Giao diện kết nối tới `ws://127.0.0.1:8000/ws`. Khi thử trên nhiều máy cùng mạng, chạy `python -m codebase.server --host 0.0.0.0` trên máy chủ và dùng IP của máy đó trong cấu hình giao diện. Server giữ phòng và ván trong bộ nhớ của tiến trình.
+
+Chủ phòng chọn 4–20 ghế và có thể đổi thời gian thảo luận, bỏ phiếu và từng lượt đêm trong phòng chờ. Chỗ trống được NPC ngồi thay. Người mất kết nối có thể vào lại đúng ghế bằng mã phòng và token. Khi ván đã kết thúc, người mới vẫn vào được bằng mã phòng: cả phòng về phòng chờ để chủ phòng bắt đầu ván mới. Chủ phòng mất kết nối thì quyền chủ phòng chuyển cho người còn kết nối. Mỗi đêm có sáu lượt với thời lượng cố định, kể cả khi một vai không còn trong ván. Mỗi lượt đêm có 5 giây chuẩn bị riêng trước thời gian hành động. Người đang chờ thấy một đồng hồ đếm đến sáng. Sau đêm, server công bố lần lượt người còn sống trước khi mở thảo luận. Server mặc định dùng NPC mock khi `MODEL_PROVIDER=fake`. Có thể thử nhanh với `--discussion-seconds 10 --vote-seconds 5 --night-seconds 5`.
+
+Mỗi tin `state` có `is_host` để giao diện cập nhật nút Chơi lại nếu chủ phòng rời ván, cùng `phase_id` để nhận diện lượt hiện tại. Giao diện có thể gửi lại trường này trong tin `action` để từ chối thao tác đến trễ, kể cả giữa hai lượt Sói cùng tên pha. Bản terminal vẫn chạy bằng `python run.py`.
+
 ## Bản chạy thử — viết ở đâu
 
 | File | Viết gì | Bước guide |
@@ -84,14 +99,16 @@ Nhóm dùng stack khác (Node, Streamlit, notebook…): sửa hàm `run_app()` t
 
 | Thành phần | Thật / Giả | Ghi chú |
 |---|---|---|
-| Lời gọi AI ở quyết định trung tâm | **Thật** (bắt buộc từ CP3) | Model: ____ |
-|  |  |  |
+| Lời gọi AI ở quyết định trung tâm | **Thật** (bắt buộc từ CP3) | Model: `claude-haiku-5-5` (Anthropic), gọi qua `codebase/ai.py`; `eval/run-2.csv` ghi token thật |
+| Dữ liệu ván trong bộ câu thử | Giả | Tình huống ván do nhóm dựng; 7/21 câu dùng lời nói nguyên văn từ khảo sát (`evidence/survey/report.md` mục 6) |
 
 ## Dùng AI vào việc gì
 
 2–3 dòng (bắt buộc): nhóm dùng công cụ AI nào để làm gì, người kiểm lại phần nào. Chi tiết: [docs/ai-usage.md](docs/ai-usage.md). Coding agent đọc [AGENTS.md](AGENTS.md).
 
-____
+- **NPC trong ván:** `claude-haiku-5-5` chọn hành động và lời thoại cho ghế NPC. Bộ máy luật kiểm lại mọi hành động, lời thoại lộ vai bị thay bằng câu dự phòng.
+- **Coding agent (Claude Code):** viết và review code server, bộ máy, giao diện, viết unit test, thêm 7 câu thử NPC15–NPC21 từ trích dẫn khảo sát. Nhóm duyệt từng PR trước khi merge vào `dev`.
+- **Không dùng AI để** tạo người trả lời khảo sát, trích dẫn hay kết quả các lượt chạy. Cột `pass` trong `eval/run-*.csv` do người chấm.
 
 ## File mẫu — điền ở bước nào
 

@@ -37,7 +37,8 @@ Bộ CP2 đã chốt ngày 27/11/2026. `data/cp2_sample_game.json` là ván tự
 
 | Lượt | Run ID | Model | Cấu hình (prompt / công cụ / thay đổi) | Đạt / tổng | % | Đạt chuẩn? |
 |---|---|---|---|---|---|---|
-| Chưa có lượt đánh giá model thật | | | | | | |
+| 1 | run-2@20261128-091212 | claude-haiku-5-5 | Bộ 21 ca (NPC01–NPC21), prompt và công cụ ở `dev` ngày 28/11 | 15/21 | 71% | Chưa (tu_choi 0/3, NPC13 lộ vai Tiên tri) |
+| (không tính) | run-1 | claude-haiku-5-5 | Bộ CP2 14 ca, khác bộ câu thử nên không dùng làm lượt 1 | 14/14 | 100% | — |
 
 Lượt chạy lại vì lỗi kỹ thuật, lượt sau CP4: ghi thêm dòng, không sửa dòng cũ.
 

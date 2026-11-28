@@ -11,11 +11,33 @@ SPECIAL_ROLES = {
     "phu_thuy", "tho_san", "than_tinh_yeu",
 }
 NIGHT_ROLE_PHASES = ("night_protect", "night_inspect", "night_witch", "night_hunter")
+FIXED_NIGHT_SLOTS = 2 + len(NIGHT_ROLE_PHASES)
 ROLE_ACTIONS = {
     "night_protect": ("bao_ve", "protect"),
     "night_inspect": ("tien_tri", "inspect"),
     "night_hunter": ("tho_san", "mark"),
 }
+
+
+def deal_roles(seats, rng):
+    """Build and shuffle a balanced role list for a lobby of 4 to 20."""
+    if type(seats) is not int or not 4 <= seats <= 20:
+        raise ValueError("A room requires 4 to 20 seats.")
+    roles = ["tien_tri"]
+    if seats >= 5:
+        roles.append("bao_ve")
+    wolf_count = 1 if seats <= 5 else 2
+    if seats >= 8:
+        roles.extend(("soi_con", "phu_thuy"))
+        wolf_count = max(3, (seats + 2) // 4) - 1
+    if seats >= 11:
+        roles.extend(("tho_san", "than_tinh_yeu"))
+    if seats >= 12:
+        roles.append("tien_tri_tap_su")
+    roles.extend(["soi_thuong"] * wolf_count)
+    roles.extend(["dan"] * (seats - len(roles)))
+    rng.shuffle(roles)
+    return roles
 
 
 @dataclass(frozen=True)
@@ -27,7 +49,7 @@ class Player:
 class GameEngine:
     """Receive actions from trusted sessions and expose a per-player view."""
 
-    def __init__(self, players, *, rng=None):
+    def __init__(self, players, *, rng=None, fixed_night=False):
         players = [Player(item["player_id"], item["role"])
                    for item in players]
         ids = [player.player_id for player in players]
@@ -59,6 +81,8 @@ class GameEngine:
         self._night_actions = {}
         self._wolf_targets = []
         self._wolf_strikes = 1
+        self._fixed_night = fixed_night
+        self._wolf_slot = 1
         self._last_deaths = []
         self._eliminated = None
         self.round = 1
@@ -77,6 +101,10 @@ class GameEngine:
         if self.phase == "day_vote":
             return [{"type": "vote", "target_ids": self._others(player_id)}]
         if self._factions[player_id] != "soi":
+            return []
+        if self._fixed_night and self._wolf_slot == 2 and (
+            self._wolf_strikes < 2 or not self._wolf_targets
+        ):
             return []
         targets = sorted(p for p in self._alive if self._factions[p] != "soi"
                          and p not in self._wolf_targets)
@@ -139,6 +167,16 @@ class GameEngine:
             view["inspections"] = [item.copy() for item in self._inspections[player_id]]
         return view
 
+    def reveal(self):
+        """Return the full role list only once the match has ended."""
+        if self.phase != "finished":
+            return None
+        return [
+            {"player_id": pid, "role": player.role, "faction": self._factions[pid],
+             "alive": pid in self._alive}
+            for pid, player in self._players.items()
+        ]
+
     def submit_action(self, player_id, action):
         """Apply one legal action. The caller supplies an authenticated player ID."""
         if not isinstance(action, dict):
@@ -194,6 +232,7 @@ class GameEngine:
     def _start_night(self):
         self.phase = "night_wolf"
         self._wolf_strikes = 2 if self._wolf_bonus else 1
+        self._wolf_slot = 1
         self._wolf_bonus = False
         self._wolf_targets.clear()
         self._night_actions.clear()
@@ -202,7 +241,7 @@ class GameEngine:
     def _advance_night_roles(self, start):
         for phase in NIGHT_ROLE_PHASES[start:]:
             self.phase = phase
-            if any(self.allowed_actions(p) for p in self._alive):
+            if self._fixed_night or any(self.allowed_actions(p) for p in self._alive):
                 return
         self._resolve_night()
 
@@ -219,7 +258,11 @@ class GameEngine:
             self._votes.clear()
             if leaders:
                 self._wolf_targets.append(self._rng.choice(leaders))
-            if leaders and len(self._wolf_targets) < self._wolf_strikes and any(
+            if self._fixed_night:
+                if self._wolf_slot == 1:
+                    self._wolf_slot += 1
+                    return self.phase
+            elif leaders and len(self._wolf_targets) < self._wolf_strikes and any(
                     self._factions[p] == "soi" and self._vote_options(p) for p in self._alive):
                 return self.phase
             self._advance_night_roles(0)
