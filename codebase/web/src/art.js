@@ -1,24 +1,18 @@
 // Hình riêng của làng: nhà, hai dạng Sói, lửa, khiên và gươm. Nguồn ở assets/village/README.md.
 
 import meta from "./assets/village/village.json";
+import { imageStore } from "./images.js";
 import { iso } from "./map.js";
 
 const urls = import.meta.glob("./assets/village/*.webp", { eager: true, query: "?url", import: "default" });
 const url = (name) => urls[`./assets/village/${name}.webp`];
 
-const images = new Map();
-function image(name) {
-  if (!images.has(name)) {
-    const picture = new Image();
-    picture.src = url(name);
-    images.set(name, picture);
-  }
-  return images.get(name);
-}
+const store = imageStore(url);
+const image = store.get;
 
 export function loadVillageArt() {
   const names = [...Object.keys(meta.art), "werewolf", "cub", "fire", "loot", "icon-shield"];
-  return Promise.all(names.map((name) => image(name).decode().catch(() => {})));
+  return store.load(names);
 }
 
 const artOf = (house) => {

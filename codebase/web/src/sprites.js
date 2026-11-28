@@ -2,6 +2,7 @@
 // Ảnh lấy từ bộ FLARE (CC-BY-SA 3.0), xem assets/flare/README.md.
 
 import meta from "./assets/flare/sprites.json";
+import { imageStore } from "./images.js";
 
 const urls = import.meta.glob("./assets/flare/*.webp", { eager: true, query: "?url", import: "default" });
 const url = (name) => urls[`./assets/flare/${name}.webp`];
@@ -34,15 +35,8 @@ const OUTFITS = [
 export const outfitOf = (index) => OUTFITS[index % OUTFITS.length];
 export const portraitUrl = (index) => url(`portrait-${outfitOf(index).gender}-${Math.floor(index / 2) % 6}`);
 
-const images = new Map();
-function image(name) {
-  if (!images.has(name)) {
-    const picture = new Image();
-    picture.src = url(name);
-    images.set(name, picture);
-  }
-  return images.get(name);
-}
+const store = imageStore(url);
+const image = store.get;
 
 // Tải ảnh cảnh và các lớp trang phục đang dùng.
 export function loadArt(count) {
@@ -51,7 +45,7 @@ export function loadArt(count) {
     const outfit = outfitOf(i);
     for (const layer of outfit.layers) names.add(`${outfit.gender}-${layer}`);
   }
-  return Promise.all([...names].map((name) => image(name).decode().catch(() => {})));
+  return store.load(names);
 }
 
 export function drawTile(g, id, x, y) {

@@ -2,7 +2,7 @@
 
 .village { position: relative; width: 100%; height: 100%; overflow: hidden; touch-action: none; cursor: pointer; user-select: none; background: #05060a; }
 .village .scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.village .loading { position: absolute; inset: 0; display: grid; place-content: center; background: #05060a; color: #d9c08a; font: 700 1.5rem "Cormorant Garamond", Georgia, serif; z-index: 3; }
+.village .loading { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 0 24px; text-align: center; background: #05060a; color: #d9c08a; font: 700 1.5rem "Cormorant Garamond", Georgia, serif; z-index: 3; }
 
 .compass { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 8px; padding: 4px 12px; border: 1px solid #6b573a; background: #0e0b09d8; color: #e2c684; font: 600 .8rem "Be Vietnam Pro", sans-serif; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; white-space: nowrap; }
 .compass-arrow { display: inline-block; }
