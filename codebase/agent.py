@@ -61,16 +61,16 @@ BOT_PROFILES = [
 ]
 
 PHASE_HINTS = {
-    "day_discussion": "Cãi nhau ở quảng trường. Chọn phe, tố thẳng, bắt người kia phải đỡ.",
+    "day_discussion": "Đang cãi nhau trong group chat của làng. Nhảy vào như người thật: bắt bẻ một câu cụ thể, chọn phe.",
     "day_vote": "Pha vote: tự chọn một người để loại dựa trên đánh giá của ghế mình.",
 }
 
 MOCK_LINES = [
-    "Mọi người hãy đối chiếu các phát biểu trước khi quyết định.",
-    "Mình đang nghe thêm, chưa muốn kết luận vội.",
-    "Đừng vote theo cảm tính, nói lý do rõ ràng nhé.",
-    "Mỗi người nói lý do nghi ai đi, mình nghe hết rồi tính.",
-    "Mình chỉ nói theo những gì đã thấy trong ván thôi.",
+    "ơ chưa ai nói gì luôn hả, ai nghi ai thì nói lẹ đi chứ",
+    "mình đang hóng thêm, chưa chốt ai đâu nha",
+    "đừng vote theo cảm giác nha, có lý do thì nói ra",
+    "nói lý do đi rồi mình tính, giờ chưa thấy gì rõ",
+    "mình chỉ nói theo mấy gì thấy trong ván thôi á",
 ]
 # Câu mock không khẳng định sự kiện nào, để không bao giờ mâu thuẫn với view.
 SPEECH = MOCK_LINES[0]
@@ -105,23 +105,23 @@ def mock_discussion_line(view):
         accusing = re.search(r"\b(?:nghi|vote|bo phieu|soi)\b", _fold(line))
         if mentions_player(line, view["player_id"], names.get(view["player_id"], "")):
             if accusing:
-                return f"Ủa {target}, tố mình mà không chỉ ra câu nào? Vội đẩy mình ra thế, chính bạn mới đáng nghi đấy!"
-            return f"{target} gọi mình à? Nói thẳng đi, đang nghi ai thì chỉ mặt luôn."
+                return f"ơ {target} tố mình mà chả chỉ ra câu nào luôn, vội đẩy mình ra vậy thì {target} mới đáng nghi á"
+            return f"{target} gọi mình hả, nghi ai thì nói thẳng ra đi"
         if accusing:
             accused = next((p for p in candidates if p != target and mentions_player(line, p, names.get(p, ""))), None)
             if accused:
-                return f"{target} nói vậy là nặng rồi đó. {accused}, đỡ đi chứ, im là mình theo {target} luôn!"
+                return f"{accused} giải thích đi chứ, im là mình theo {target} luôn đó"
         if "?" in line:
-            return f"{target}, hỏi khéo thế để né à? Bạn nói trước đi, bạn nghi ai?"
-        return f"{target}, nghe sai sai. Nói thì hay mà chả có câu nào làm chứng cả."
+            return f"{target} hỏi ngược lại vậy là né à, {target} nghi ai thì nói trước đi"
+        return f"nghe {target} nói thấy sai sai, nói hay mà chả có căn cứ gì"
     latest = next((m["player_id"] for m in reversed(view["public_chat"]) if m["player_id"] in candidates), None)
     if latest:
-        questions = ("thôi đi, nói vòng vo thế ai tin? Chỉ đúng câu nào đáng nghi xem.",
-                     "chốt luôn: bạn vote ai? Không dám nói thì mình để ý bạn đấy.",
-                     "nghe bạn nói mà thấy lạ lắm. Đang nghi ai thì gọi thẳng tên ra!")
-        return f"{latest}, {questions[variation % len(questions)]}"
+        questions = ("nói vòng vo vậy ai tin, chỉ ra câu nào đáng nghi coi",
+                     "vậy rốt cuộc vote ai, ko dám nói là mình để ý đó nha",
+                     "nghe sao sao á, nghi ai thì gọi tên ra luôn đi")
+        return f"{latest} {questions[variation % len(questions)]}"
     if candidates:
-        return f"{candidates[variation % len(candidates)]}, im từ nãy là sao? Nói đi, bạn nghi ai?"
+        return f"{candidates[variation % len(candidates)]} nãy giờ chưa nói gì nè, nghi ai vậy"
     return MOCK_LINES[variation % len(MOCK_LINES)]
 
 
@@ -375,20 +375,31 @@ def _system(view):
             "- Khi phản biện, gọi mã người nói, nhắc một ý cụ thể họ đã nói trong public_chat và hỏi một câu "
             "khó né. Nếu có hai câu mâu thuẫn thật, đối chiếu ngắn hai câu đó. Nếu chưa ai nói, chọn một "
             "người còn sống để hỏi họ nghi ai nhất và vì sao.",
-            "- Đây là cãi nhau, không phải họp lớp. Luôn có lập trường: nghi ai, bênh ai, hoặc chống ai. "
+            "- Đây là cãi nhau thật, không phải họp lớp. Luôn có lập trường: nghi ai, bênh ai, hoặc chống ai. "
             "Không ba phải, không kêu gọi chung chung cả làng.",
-            "- Bị nghi thì phản đòn: gạt lời buộc tội và chĩa ngược lại người tố. Ví dụ: 'P03 tố mình mà "
-            "không có câu nào làm chứng? Vội đẩy mình ra thế, chính bạn mới đáng nghi.'",
-            "- Thấy hai người đang cãi thì nhảy vào chọn một bên, hoặc khích thêm. Được mỉa mai, cà khịa, dùng "
-            "giọng chat đời thường và dấu chấm than. Không mở đầu bằng 'Ủa', đổi cách vào câu mỗi lần.",
-            "- Giữ đúng giọng tính cách ở trên cho thật đậm. Gắt được, xưng mình/bạn, không mày tao, không chửi tục, không xúc phạm "
+            "- Phản biện cho ra phản biện: lấy đúng một ý người kia vừa nói rồi chỉ ra chỗ hở (mâu thuẫn với câu "
+            "trước của họ, không có căn cứ, đổi ý bất thường, đẩy nghi ngờ quá vội), xong hỏi vặn một câu khó né. "
+            "Đừng chỉ nói 'nghi bạn' suông.",
+            "- Bị nghi thì phản đòn: gạt lời buộc tội, hỏi lại căn cứ, rồi chĩa ngược vào chỗ yếu của người tố.",
+            "- Thấy hai người đang cãi thì nhảy vào chọn một bên, hoặc khích thêm.",
+            "- GIỌNG: chat như người Việt 20 tuổi trong group chat game, không phải văn viết. Câu ngắn, có thể "
+            "cụt, không cần đủ chủ vị, không cần viết hoa đầu câu. Dùng từ đệm tự nhiên như ơ, ê, ủa, hả, á, nha, "
+            "chứ, thôi, trời, kiểu, vậy, mỗi câu tối đa một từ. KHÔNG dùng chữ 'ủa', không mở đầu bằng 'ơ' hay 'Pxx ơi'. "
+            "Đa số câu vào thẳng mã người mình nhắm. Được viết tắt nhẹ: ko, đc, r, vs, j. Xưng mình hoặc tui, gọi người khác bằng mã (P03).",
+            "- Vài câu đúng giọng (chỉ để học giọng, đừng chép): 'P03 nãy kêu nghi P05 giờ lại quay sang P02, đổi "
+            "nhanh vậy?' | 'P06 tố tui mà ko có câu nào làm chứng hết' | 'thôi P02 nói thì nói luôn đi, vote ai' "
+            "| 'công nhận P04 nói đúng, mình đổi qua nghi P07' | 'P01 bênh P05 hơi nhiệt tình á'.",
+            "- CẤM giọng AI: không 'Mọi người hãy', không 'Theo mình thấy thì', không 'Mình nghĩ chúng ta nên', "
+            "không 'hợp lý', 'đáng cân nhắc', 'phân tích', 'logic', không liệt kê, không cặp câu cân đối, "
+            "không dấu gạch ngang, không chốt bằng lời khuyên. Tối đa một dấu chấm than. Không lặp lại câu mình "
+            "đã nói và đừng mở đầu giống câu trước của mình.",
+            "- Giữ đúng tính cách ở trên. Gắt được, mỉa được, không mày tao, không chửi tục, không xúc phạm "
             "ngoại hình, gia đình hay người thật ngoài ván.",
             "- Gắt ở giọng, nhưng chi tiết phải đúng. Chỉ bắt bẻ điều có thật trong public_chat và gán đúng người "
             "đã nói câu đó (câu mang mã của bạn là lời của bạn). Ai chưa nói gì thì không gán lời hay thái độ cho họ. "
             "Đây là chat chữ: không có cử chỉ, nét mặt hay giọng nói để soi.",
-            "- Bị hỏi thẳng 'bạn là Sói' thì câu đầu phủ nhận dứt khoát (vd 'Mình không phải Sói!'), "
-            "câu sau phản đòn và đòi căn cứ.",
-            "- Ngắn và sắc: tối đa hai câu, khoảng 20 từ. Chỉ nhắm một người mỗi lượt.",
+            "- Bị hỏi thẳng 'bạn là Sói' thì phủ nhận trước (vd 'ko phải sói nha'), rồi phản đòn và đòi căn cứ.",
+            "- Ngắn như tin nhắn: MỘT câu, hai câu nếu thật cần, dưới 20 từ (dưới 100 ký tự). Không hỏi dồn. Chỉ nhắm một người mỗi lượt.",
             "- Dân: không để Sói lẩn, bám người có lời khai lạ.",
         ])
         if view.get("inspections"):
@@ -398,8 +409,9 @@ def _system(view):
                          "trong câu, kể cả để bênh hay nhắc lại lời họ: câu có mã đó sẽ bị chặn."
                          % ", ".join(view["wolf_peers"]))
         if view.get("debate_turn") == "rebuttal":
-            lines.append("- Đây là lượt phản biện. Đáp vào thông tin mới sau câu trước của bạn, rồi giữ hoặc đổi nghi vấn. "
-                         "Đừng lặp lại câu hỏi cũ. Có người đáp yếu thì dồn tiếp, có người lật kèo thì vạch ra. Tối đa hai câu ngắn.")
+            lines.append("- Đây là lượt phản biện. Đáp thẳng vào reply_to: nhắc lại ngắn ý của họ rồi bẻ nó. "
+                         "Họ đáp yếu thì dồn tiếp, họ lật kèo thì vạch ra, họ nói có lý thì nói thẳng là mình đổi ý vì câu nào. "
+                         "Đừng lặp lại câu hỏi cũ.")
     if view["phase"] == "day_vote":
         lines.extend([
             "- Tự đối chiếu lịch sử chung, ai đã nói gì, và kết quả kỹ năng bạn biết. Nếu có lời thúc vote, "
@@ -461,6 +473,17 @@ def _clip(text):
     return (cut[:cut.rfind(" ")] if " " in cut else cut).rstrip(",;: ") + "…"
 
 
+_FILLER_OPENING = re.compile(r"^(?:ủa|ơ|ê)\b[\s,.!?]*", re.IGNORECASE)
+
+
+def _drop_filler(text):
+    """Bỏ 'ủa', 'ơ', 'ê' ở đầu câu: model hay mở câu nào cũng bằng chúng, đọc rất máy."""
+    if not isinstance(text, str):
+        return text
+    trimmed = _FILLER_OPENING.sub("", text, count=1)
+    return trimmed or text
+
+
 def _normalize(data, view):
     """Giữ đúng 3 khoá, cắt lời dài, ở pha thảo luận gắn lời nói thành chat."""
     if data is None:
@@ -476,6 +499,9 @@ def _normalize(data, view):
         if action["type"] == "chat" and not speech:
             speech = action["text"]
     if view["phase"] == "day_discussion":
+        speech = _drop_filler(speech)
+        if isinstance(action, dict) and action.get("type") == "chat":
+            action = dict(action, text=_drop_filler(action["text"]))
         if action is None and speech:
             action = {"type": "chat", "text": speech}
         elif isinstance(action, dict) and action.get("type") == "chat":
