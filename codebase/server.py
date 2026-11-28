@@ -21,14 +21,14 @@ from .rooms import RoomError, Rooms
 
 # The existing terminal app and evaluator load agent.py as a top-level module.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from agent import answer, mentions_player, mock_discussion_line
+from agent import answer, mentions_player, mock_day_vote_action, mock_discussion_line
 
 
 LOGGER = logging.getLogger(__name__)
 MAX_CHAT_LENGTH = 200
 BOT_TIMEOUT = 5
 DEBATE_BATCH_SIZE = 3
-DEBATE_REPLY_LIMIT = 3
+DEBATE_REPLY_PAUSE = 15
 PREPARE_SECONDS = 5
 DAWN_STEP_SECONDS = 0.7
 BOT_MARGIN_SECONDS = 0.3
@@ -318,7 +318,10 @@ class GameServer:
                     # Bots whose model call ran out of time still take a legal default.
                     pending = room.names if engine.phase == "pair" else sorted(room.bots - room.acted)
                     for pid in pending:
-                        action = fallback(engine.allowed_actions(pid), room.rng)
+                        if engine.phase == "day_vote":
+                            action = mock_day_vote_action(engine.view(pid))
+                        else:
+                            action = fallback(engine.allowed_actions(pid), room.rng)
                         if action is not None:
                             engine.submit_action(pid, action)
                     dawn_views = room.capture_dawn_views() if phase == "night_hunter" else None
@@ -353,27 +356,41 @@ class GameServer:
         bots = [pid for pid in sorted(room.bots) if room.engine.allowed_actions(pid)]
         if room.engine.phase == "day_discussion":
             room.bot_discussion_replies.clear()
+            if bots:
+                room.discussion_chat_start = len(room.engine.view(bots[0])["public_chat"])
             room.bot_tasks = [asyncio.create_task(self._bot_discussion(room, phase_id, bots))] if bots else []
             return
         room.bot_tasks = [asyncio.create_task(self._bot_turn(room, phase_id, pid)) for pid in bots]
 
     async def _bot_discussion(self, room, phase_id, bots):
         # Give later speakers something public to respond to before starting more calls.
+        loop = asyncio.get_running_loop()
+        opened_at = loop.time()
+        reply_at = opened_at + min(DEBATE_REPLY_PAUSE, (room.turn_end - opened_at) / 3)
         await self._bot_turn(room, phase_id, bots[0])
         for start in range(1, len(bots), DEBATE_BATCH_SIZE):
             batch = bots[start:start + DEBATE_BATCH_SIZE]
             await asyncio.gather(*(self._bot_turn(room, phase_id, pid) for pid in batch))
 
+        # Leave a window for human input, then let bots revisit the discussion.
+        await asyncio.sleep(max(0, reply_at - loop.time()))
+        for start in range(0, len(bots), DEBATE_BATCH_SIZE):
+            async with room.lock:
+                if not room.accepting or room.phase_id != phase_id or loop.time() >= room.turn_end:
+                    return
+                batch = [pid for pid in bots[start:start + DEBATE_BATCH_SIZE]
+                         if pid not in room.bot_discussion_replies]
+                room.bot_discussion_replies.update(batch)
+            await asyncio.gather(*(self._bot_turn(room, phase_id, pid, rebuttal=True) for pid in batch))
+
     def _queue_debate_reply(self, room, speaker, text):
         replies = room.bot_discussion_replies
-        if len(replies) >= DEBATE_REPLY_LIMIT:
-            return
         candidates = (room.bots & room.acted) - replies - {speaker}
         for pid in sorted(candidates):
             if room.engine.allowed_actions(pid) and mentions_player(text, pid, room.names[pid]):
                 replies.add(pid)
                 room.bot_tasks.append(asyncio.create_task(self._bot_turn(
-                    room, room.phase_id, pid, reply_to={"player_id": speaker, "text": text.strip()},
+                    room, room.phase_id, pid, rebuttal=True, reply_to={"player_id": speaker, "text": text.strip()},
                 )))
                 break
 
@@ -414,26 +431,35 @@ class GameServer:
         except Exception:
             return None
 
-    def _bot_view(self, room, player_id, reply_to):
+    def _bot_view(self, room, player_id, rebuttal=False, reply_to=None):
         view = room.engine.view(player_id)
+        if view["phase"] in {"day_discussion", "day_vote"}:
+            view["player_names"] = room.names.copy()
         if view["phase"] == "day_discussion":
             name = room.names[player_id]
-            view["reply_to"] = reply_to or next(
-                (message for message in reversed(view["public_chat"][-8:])
-                 if message["player_id"] != player_id and mentions_player(message["text"], player_id, name)),
-                None,
-            )
+            recent = []
+            for message in reversed(view["public_chat"][room.discussion_chat_start:]):
+                if message["player_id"] == player_id:
+                    break
+                recent.append(message)
+            if reply_to not in recent:
+                reply_to = next((m for m in recent if mentions_player(m["text"], player_id, name)), None)
+            view["debate_turn"] = "rebuttal" if rebuttal else "opening"
+            view["reply_to"] = reply_to or (recent[0] if recent else None)
         return view
 
-    async def _bot_turn(self, room, phase_id, player_id, *, reply_to=None):
+    async def _bot_turn(self, room, phase_id, player_id, *, rebuttal=False, reply_to=None):
         # Leave time for the fallback before the phase closes, even with short timers.
         now = asyncio.get_running_loop().time()
         end = min(now + BOT_TIMEOUT, room.turn_end - BOT_MARGIN_SECONDS)
         for _ in range(2):
             async with room.lock:
-                if not room.accepting or room.phase_id != phase_id:
+                if not room.accepting or room.phase_id != phase_id or now >= room.turn_end:
                     return
-                view = self._bot_view(room, player_id, reply_to)
+                view = self._bot_view(room, player_id, rebuttal, reply_to)
+                if rebuttal and view["reply_to"] is None:
+                    room.bot_discussion_replies.discard(player_id)
+                    return
             action = await self._choose(room, view, end - asyncio.get_running_loop().time())
             async with room.lock:
                 if not room.accepting or room.phase_id != phase_id:
@@ -451,10 +477,12 @@ class GameServer:
         async with room.lock:
             if not room.accepting or room.phase_id != phase_id:
                 return
-            view = self._bot_view(room, player_id, reply_to)
+            view = self._bot_view(room, player_id, rebuttal, reply_to)
             options = view["allowed_actions"]
             if view["phase"] == "day_discussion" and options:
                 action = {"type": "chat", "text": mock_discussion_line(view)}
+            elif view["phase"] == "day_vote":
+                action = mock_day_vote_action(view)
             else:
                 action = fallback(options, room.rng)
             if action is not None:
