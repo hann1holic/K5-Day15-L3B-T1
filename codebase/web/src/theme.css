@@ -1,0 +1,105 @@
+/* Phong cách u tối: khung đen viền đồng, nền làng đêm, chữ Cormorant Garamond + Be Vietnam Pro.
+   Bỏ dòng import file này trong main.js là về lại kiểu cũ. */
+
+:root {
+  font-family: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  color: #d9cfbd;
+  --panel: #12100e;
+  --text: #e3d8c2;
+  --muted: #a89a80;
+  --line: #4a3d29;
+  --accent: #c9a75f;
+  --ink: #140f0a;
+}
+body {
+  background: linear-gradient(#050608c4, #050608f2), url("./assets/flare/home.webp") center / cover fixed #07080a;
+  min-height: 100vh;
+}
+h1, h2, .brand { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 700; letter-spacing: .02em; color: #e8d9b5; }
+h2 { font-size: 1.45rem; }
+.entry h1 { color: #e8d9b5; text-shadow: 0 6px 30px #000; }
+.eyebrow { color: #9c8761; letter-spacing: .2em; font-weight: 600; font-size: .74rem; }
+.topbar { background: #0b0908d9; border-bottom-color: #4a3d29; }
+.brand-mark { background: #d8cfae; box-shadow: inset -7px 1px 0 0 #0b0908, 0 0 14px #d8cfae66; }
+
+.panel { border: 1px solid #5d4c33; border-radius: 3px; background: linear-gradient(#15120ff0, #0c0a09f2); box-shadow: inset 0 0 0 1px #000, 0 14px 40px #000a; }
+.turn-panel[data-active=true] { border-color: #a3563c; background: linear-gradient(#251310f2, #110b09f4); }
+
+button { border: 1px solid #5d4c33; border-radius: 2px; background: #17130f; color: #e3d8c2; font-weight: 600; letter-spacing: .02em; }
+button:hover:not(:disabled) { border-color: #b8935a; }
+button.primary { background: linear-gradient(#6a251d, #3a120f); border-color: #9b5239; color: #f2e3cc; box-shadow: inset 0 0 0 1px #0006; }
+button.primary:hover:not(:disabled) { background: linear-gradient(#833026, #491713); border-color: #d08a5c; }
+button.quiet { background: #0d0b0999; }
+input, select { border: 1px solid #4a3d29; border-radius: 2px; background: #0a0908e0; color: #e3d8c2; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline-color: #c9a75f; }
+.tabs button { background: none; border: 0; }
+.tabs button[aria-pressed=true] { color: #e2c684; box-shadow: inset 0 -2px #a3563c; }
+.player-card { border-radius: 2px; background: #0d0b0a; }
+.connection[data-status=online] { color: #9db58a; }
+
+/* Tiêu đề được focus bằng code khi đổi màn, không cần viền. */
+h1:focus { outline: none; }
+
+/* Chân dung nhân vật của mình trên thẻ vai. */
+.personal { display: grid; grid-template-columns: auto 1fr; column-gap: .9rem; align-content: start; }
+.personal > * { grid-column: 2; }
+.personal .portrait { grid-column: 1; grid-row: 1 / span 3; width: 86px; height: 86px; object-fit: cover; border: 1px solid #8a7048; filter: saturate(.85) contrast(1.05); background: #000; }
+.personal #private-info { grid-column: 1 / -1; }
+
+.game-side .turn-panel { margin: 0; }
+.game-side .turn-panel .action-list { grid-template-columns: 1fr; }
+.chat-log { max-height: 200px; }
+
+/* Màn ván chiếm toàn màn hình, các bảng nổi trên bản đồ. */
+#game:not([hidden]) { position: fixed; inset: 0; z-index: 10; background: #05060a; }
+#game .table-board { position: absolute; inset: 0; min-height: 0; padding: 0; border: 0; background: none; }
+#game .game-grid { display: block; }
+#game .game-heading { position: absolute; left: 14px; top: 14px; right: 14px; z-index: 30; margin: 0; align-items: start; pointer-events: none; }
+#game .game-heading > div { padding: .55rem 1.1rem .7rem; border: 1px solid #5d4c33; background: linear-gradient(#15120fec, #0c0a09ee); box-shadow: inset 0 0 0 1px #000; pointer-events: auto; max-width: 62%; }
+#game .game-heading .heading-controls { background: none; border: 0; box-shadow: none; padding: 0; max-width: none; flex-direction: row; }
+#game .game-heading h1 { font-size: clamp(1.6rem, 3vw, 2.3rem); line-height: 1.1; }
+#game .game-heading p { margin-top: .1rem; }
+#game .timer { background: #0d0b09e6; border-color: #5d4c33; border-radius: 2px; font: 700 1.5rem "Cormorant Garamond", Georgia, serif; }
+#game .timer:empty { display: none; }
+#game .game-side { position: absolute; right: 14px; top: 76px; bottom: 14px; width: 330px; z-index: 20; overflow-y: auto; align-content: start; gap: .6rem; }
+#game.hud-closed .game-side { display: none; }
+/* Thông báo lỗi vẫn phải thấy được khi bản đồ phủ kín màn hình. */
+.shell:has(#game:not([hidden])) #notice:not([hidden]) { position: fixed; left: 50%; bottom: 60px; transform: translateX(-50%); z-index: 40; }
+/* Kết quả ván: màu theo phe thắng, cảnh mở đầu theo ghế mình thắng hay thua. */
+#result { --faction: #c9a75f; }
+#result[data-winner=soi] { --faction: #d65745; }
+#result[data-winner=tinh_nhan] { --faction: #d97aa4; }
+#result[data-winner=hoa] { --faction: #a8a296; }
+#result h1 { color: var(--faction); }
+.outcome { display: inline-block; margin-bottom: .6rem; padding: .15rem .9rem .3rem; border: 1px solid var(--faction); color: #f2e3c0; font: 700 1.3rem "Cormorant Garamond", Georgia, serif; }
+.screen-heading .outcome { color: #f2e3c0; margin-top: 0; }
+#result[data-outcome=defeat] .outcome { border-color: #6b5a52; color: #c9bfae; }
+.splash { position: fixed; inset: 0; z-index: 60; display: grid; place-content: center; justify-items: center; gap: .8rem; width: 100%; padding: 1.5rem; border: 0; border-radius: 0; text-align: center; animation: splash-in .6s ease-out; }
+.splash strong { font: 700 clamp(3.4rem, 13vw, 7.5rem)/1 "Cormorant Garamond", Georgia, serif; letter-spacing: .03em; text-shadow: 0 8px 40px #000; }
+.splash span { font-size: 1.05rem; font-weight: 400; }
+.splash[data-outcome=victory], .splash[data-outcome=victory]:hover { background: radial-gradient(circle, #4d3611f5, #0a0704fc 70%); color: #ffdf8e; }
+.splash[data-outcome=defeat], .splash[data-outcome=defeat]:hover { background: radial-gradient(circle, #3b0709f5, #080102fc 70%); color: #eab8ad; }
+.splash[data-outcome=draw], .splash[data-outcome=draw]:hover { background: radial-gradient(circle, #26282ef5, #07080afc 70%); color: #dbd7cd; }
+@keyframes splash-in { from { opacity: 0; transform: scale(1.07); } to { opacity: 1; transform: none; } }
+
+/* Phần bản đồ bị bảng che: nút F canh giữa phần còn lại. */
+#game .village { --side: 342px; --below: 0px; }
+#game.hud-closed .village { --side: 0px; }
+
+@media (max-width: 760px) {
+  #game .game-side { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 40vh; }
+  #game .game-heading { flex-direction: row; left: 8px; right: 8px; gap: .4rem; }
+  #game .game-heading p:not(.eyebrow) { display: none; }
+  #game .game-heading > div { max-width: 44%; padding: .4rem .6rem .5rem; }
+  #game .game-heading h1 { font-size: 1.35rem; }
+  #game .game-heading .eyebrow { font-size: .62rem; letter-spacing: .12em; }
+  #game .game-heading .heading-controls { flex-wrap: nowrap; gap: 4px; max-width: none; padding: 0; }
+  #game .heading-controls button { padding: .3rem .45rem; font-size: .76rem; min-height: 38px; white-space: nowrap; }
+  #game .timer { min-width: 48px; padding: .3rem; font-size: 1.15rem; }
+  #game .village-hint { top: 112px; bottom: auto; font-size: .78rem; }
+  #game .village { --side: 0px; --below: 40vh; }
+  #game.hud-closed .village { --below: 0px; }
+  #game .interact { bottom: calc(18px + var(--below)); }
+  #game .village-toast { bottom: calc(80px + var(--below)); max-width: 92%; }
+  #game .held { top: 170px; left: 8px; max-width: 250px; font-size: .74rem; }
+}
