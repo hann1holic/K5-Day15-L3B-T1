@@ -21,12 +21,14 @@ from .rooms import RoomError, Rooms
 
 # The existing terminal app and evaluator load agent.py as a top-level module.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from agent import answer
+from agent import answer, mentions_player, mock_discussion_line
 
 
 LOGGER = logging.getLogger(__name__)
 MAX_CHAT_LENGTH = 200
 BOT_TIMEOUT = 5
+DEBATE_BATCH_SIZE = 3
+DEBATE_REPLY_LIMIT = 3
 PREPARE_SECONDS = 5
 DAWN_STEP_SECONDS = 0.7
 VOTE_SCENE_SECONDS = 2
@@ -239,6 +241,8 @@ class GameServer:
             if action["type"] not in CHAT_ACTIONS and (
                     engine.phase != "night_witch" or not engine.allowed_actions(member.player_id)):
                 room.acted.add(member.player_id)
+            if action["type"] == "chat":
+                self._queue_debate_reply(room, member.player_id, action["text"])
             self._check_ready(room)
             await self._broadcast_action(room, member.player_id)
 
@@ -404,10 +408,32 @@ class GameServer:
         room.accepting = True
         room.turn_end = end
         self._check_ready(room)
-        room.bot_tasks = [
-            asyncio.create_task(self._bot_turn(room, phase_id, pid))
-            for pid in sorted(room.bots) if room.engine.allowed_actions(pid)
-        ]
+        bots = [pid for pid in sorted(room.bots) if room.engine.allowed_actions(pid)]
+        if room.engine.phase == "day_discussion":
+            room.bot_discussion_replies.clear()
+            room.bot_tasks = [asyncio.create_task(self._bot_discussion(room, phase_id, bots))] if bots else []
+            return
+        room.bot_tasks = [asyncio.create_task(self._bot_turn(room, phase_id, pid)) for pid in bots]
+
+    async def _bot_discussion(self, room, phase_id, bots):
+        # Give later speakers something public to respond to before starting more calls.
+        await self._bot_turn(room, phase_id, bots[0])
+        for start in range(1, len(bots), DEBATE_BATCH_SIZE):
+            batch = bots[start:start + DEBATE_BATCH_SIZE]
+            await asyncio.gather(*(self._bot_turn(room, phase_id, pid) for pid in batch))
+
+    def _queue_debate_reply(self, room, speaker, text):
+        replies = room.bot_discussion_replies
+        if len(replies) >= DEBATE_REPLY_LIMIT:
+            return
+        candidates = (room.bots & room.acted) - replies - {speaker}
+        for pid in sorted(candidates):
+            if room.engine.allowed_actions(pid) and mentions_player(text, pid, room.names[pid]):
+                replies.add(pid)
+                room.bot_tasks.append(asyncio.create_task(self._bot_turn(
+                    room, room.phase_id, pid, reply_to={"player_id": speaker, "text": text.strip()},
+                )))
+                break
 
     async def _play_dawn(self, room):
         async with room.lock:
@@ -487,7 +513,18 @@ class GameServer:
         except Exception:
             return None
 
-    async def _bot_turn(self, room, phase_id, player_id):
+    def _bot_view(self, room, player_id, reply_to):
+        view = room.engine.view(player_id)
+        if view["phase"] == "day_discussion":
+            name = room.names[player_id]
+            view["reply_to"] = reply_to or next(
+                (message for message in reversed(view["public_chat"][-8:])
+                 if message["player_id"] != player_id and mentions_player(message["text"], player_id, name)),
+                None,
+            )
+        return view
+
+    async def _bot_turn(self, room, phase_id, player_id, *, reply_to=None):
         # Leave time for the fallback before the phase closes, even with short timers.
         loop = asyncio.get_running_loop()
         end = min(loop.time() + BOT_TIMEOUT, room.turn_end - BOT_MARGIN_SECONDS)
@@ -497,7 +534,7 @@ class GameServer:
             async with room.lock:
                 if not room.accepting or room.phase_id != phase_id:
                     return
-                view = room.engine.view(player_id)
+                view = self._bot_view(room, player_id, reply_to)
             action = await self._choose(room, view, end - loop.time())
             async with room.lock:
                 if not room.accepting or room.phase_id != phase_id:
@@ -505,7 +542,7 @@ class GameServer:
                 if action is None:
                     break
                 action = clip_text(action)
-                if action.get("type") == "wolf_chat" and chatted:
+                if chatted and isinstance(action, dict) and action.get("type") == "wolf_chat":
                     # One line at the bonfire per bot; a second chat counts as a failed try.
                     attempts -= 1
                     continue
@@ -517,6 +554,8 @@ class GameServer:
                         await self._broadcast_action(room, player_id)
                         continue
                     room.acted.add(player_id)
+                    if action["type"] == "chat":
+                        self._queue_debate_reply(room, player_id, action["text"])
                     self._check_ready(room)
                     await self._broadcast_action(room, player_id)
                     return
@@ -524,10 +563,17 @@ class GameServer:
         async with room.lock:
             if not room.accepting or room.phase_id != phase_id:
                 return
-            action = fallback(room.engine.allowed_actions(player_id), room.rng)
+            view = self._bot_view(room, player_id, reply_to)
+            options = view["allowed_actions"]
+            if view["phase"] == "day_discussion" and options:
+                action = {"type": "chat", "text": mock_discussion_line(view)}
+            else:
+                action = fallback(options, room.rng)
             if action is not None:
                 room.engine.submit_action(player_id, action)
             room.acted.add(player_id)
+            if action is not None and action["type"] == "chat":
+                self._queue_debate_reply(room, player_id, action["text"])
             self._check_ready(room)
             if action is not None:
                 await self._broadcast_action(room, player_id)
