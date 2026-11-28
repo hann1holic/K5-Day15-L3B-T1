@@ -218,7 +218,7 @@ class GameServer:
         engine = room.engine
         action = message.get("action")
         if room.village is not None and room.village.phase is not None:
-            await self._village_action(room, member, action, message.get("phase_id"))
+            await self._village_action(room, member, action, message.get("phase_id", room.phase_id))
             return
         if not isinstance(action, dict):
             result = {"accepted": False, "reason": "invalid_action"}
@@ -489,28 +489,38 @@ class GameServer:
 
     async def _bot_turn(self, room, phase_id, player_id):
         # Leave time for the fallback before the phase closes, even with short timers.
-        now = asyncio.get_running_loop().time()
-        end = min(now + BOT_TIMEOUT, room.turn_end - BOT_MARGIN_SECONDS)
-        for _ in range(2):
+        loop = asyncio.get_running_loop()
+        end = min(loop.time() + BOT_TIMEOUT, room.turn_end - BOT_MARGIN_SECONDS)
+        attempts = 2
+        chatted = False
+        while attempts:
             async with room.lock:
                 if not room.accepting or room.phase_id != phase_id:
                     return
                 view = room.engine.view(player_id)
-            action = await self._choose(room, view, end - asyncio.get_running_loop().time())
+            action = await self._choose(room, view, end - loop.time())
             async with room.lock:
                 if not room.accepting or room.phase_id != phase_id:
                     return
                 if action is None:
                     break
                 action = clip_text(action)
+                if action.get("type") == "wolf_chat" and chatted:
+                    # One line at the bonfire per bot; a second chat counts as a failed try.
+                    attempts -= 1
+                    continue
                 if room.engine.submit_action(player_id, action)["accepted"]:
                     if action["type"] == "wolf_chat":
+                        # The chat is free: the vote that follows gets its own model budget.
+                        chatted = True
+                        end = min(loop.time() + BOT_TIMEOUT, room.turn_end - BOT_MARGIN_SECONDS)
                         await self._broadcast_action(room, player_id)
                         continue
                     room.acted.add(player_id)
                     self._check_ready(room)
                     await self._broadcast_action(room, player_id)
                     return
+                attempts -= 1
         async with room.lock:
             if not room.accepting or room.phase_id != phase_id:
                 return

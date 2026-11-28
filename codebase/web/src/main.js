@@ -453,15 +453,18 @@ function submitAction(action, confirmation = "Đã gửi tin nhắn.") {
   return true;
 }
 
-function targetSelect(targets, id) {
+function targetSelect(targets, id, allies = []) {
   const select = element("select");
   select.id = id;
   select.required = true;
   const empty = element("option", "Chọn người chơi");
   empty.value = "";
   select.appendChild(empty);
-  for (const target of targets) {
-    const option = element("option", nameOf(target));
+  // Sói con cùng đàn vẫn cắn được, nên ghi rõ để không ai cắn nhầm đồng đội.
+  const ordered = [...targets.filter((t) => !allies.includes(t)), ...targets.filter((t) => allies.includes(t))];
+  for (const target of ordered) {
+    const label = allies.includes(target) ? nameOf(target) + " (Sói con, đồng đội)" : nameOf(target);
+    const option = element("option", label);
     option.value = target;
     select.appendChild(option);
   }
@@ -504,7 +507,7 @@ function actionForm(option) {
     const id = "target-" + option.type + "-" + index;
     const label = element("label", count === 1 ? "Mục tiêu" : "Người thứ " + (index + 1));
     label.htmlFor = id;
-    const select = targetSelect(option.target_ids, id);
+    const select = targetSelect(option.target_ids, id, option.ally_target_ids || []);
     targets.push(select);
     form.append(label, select);
   }
@@ -521,6 +524,11 @@ function actionForm(option) {
       return;
     }
     const toSend = count === 1 ? { target_id: selected[0] } : { target_ids: selected };
+    const allies = option.ally_target_ids || [];
+    if (selected.some((pid) => allies.includes(pid))
+        && !window.confirm("Bạn đang vote cắn Sói con cùng đàn. Vẫn tiếp tục?")) {
+      return;
+    }
     const names = selected.map(nameOf).join(" và ");
     submitAction({ type: option.type, ...toSend }, "Đã ghi nhận: " + name + " — " + names + ".");
   });

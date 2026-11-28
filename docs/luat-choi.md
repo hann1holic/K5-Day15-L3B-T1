@@ -38,13 +38,13 @@ Cả làng đi ngủ. Server chỉ gọi riêng những người có quyền hà
 | 3 | **Phù thủy** | Có một bình cứu và một bình độc cho cả ván. Bình cứu chọn một người sắp chết vì cú cắn sau khi xét Bảo vệ. Bình độc chọn một người còn sống và xuyên qua Bảo vệ. Có thể dùng cả hai bình trong cùng đêm. |
 | 4 | **Thợ săn** | Ghim một người còn sống khác mình. Có thể đổi dấu ghim theo đêm. Nếu bỏ qua lượt, giữ dấu ghim gần nhất. |
 
-Cuối đêm, server xử lý cú cắn sau Bảo vệ và bình cứu, áp dụng bình độc, rồi giải quyết hết các trường hợp chết theo.
+Cuối đêm, server xử lý cú cắn sau Bảo vệ và bình cứu, áp dụng bình độc, bỏ qua người còn Khiên Pridwen qua đêm, rồi giải quyết hết các trường hợp chết theo. Người còn khiên không hiện trong danh sách bình cứu khi bị cắn. Bình độc nhắm vào người còn khiên vẫn bị dùng hết và không có tác dụng, để Phù thủy không suy ra ai giữ khiên từ việc bình còn hay mất.
 
 ## 3. Trời sáng và bỏ phiếu
 
 1. **Báo riêng cho người bị loại.** Mỗi người chết trong đêm nhận tín hiệu riêng để chuyển sang trạng thái theo dõi. Nhát chém ngang màn hình chỉ dành cho chính người bị loại.
 2. **Tập trung ở phòng khách.** Những người còn sống lần lượt xuất hiện ở phòng khách. Người chơi tự đối chiếu ai có mặt và ai vắng để suy ra người đã chết. Trong pha tập trung, server chỉ công bố người vừa xuất hiện. Danh sách người chết và trạng thái sống/chết của toàn bàn được giữ kín trong pha này.
-3. **Lucky Day.** Vào ngày 2, 4, 6 và các ngày chẵn tiếp theo, sau khi mọi người đã tập trung và ván vẫn tiếp diễn, người sống có 30 giây để đi tìm vật phẩm. Mỗi lượt có một khiên và một gươm. Mỗi người giữ tối đa một món, có hiệu lực trong cuộc bỏ phiếu ngày đó. NPC cũng được tìm đồ.
+3. **Lucky Day.** Vào ngày 2, 4, 6 và các ngày chẵn tiếp theo, sau khi mọi người đã tập trung và ván vẫn tiếp diễn, người sống có 30 giây để đi tìm vật phẩm. Mỗi lượt có một khiên và một gươm. Mỗi người giữ tối đa một món, có hiệu lực trong cuộc bỏ phiếu ngày đó. Khiên chưa vỡ trong lượt vote còn bảo vệ chủ khiên qua đêm kế tiếp, xem mục Bỏ phiếu loại. NPC cũng được tìm đồ.
 4. **Thảo luận.** Sau khi tập trung, hoặc khi hết Lucky Day, server đưa người sống tới quảng trường. Mọi người ở nguyên quảng trường để nói chuyện chung, nhắn riêng và bỏ phiếu.
 5. **Bỏ phiếu loại.** Hết giờ thảo luận, mỗi người còn sống bỏ một phiếu cho một người còn sống khác. Có thể đổi phiếu trước khi khóa. Phiếu khóa khi hết giờ, hoặc ngay khi mọi người còn sống đã bỏ phiếu. Người dẫn đầu duy nhất bị dân làng ném vào đống lửa ở quảng trường. Cả phòng thấy cảnh này. Hòa ở vị trí cao nhất hoặc cả bàn bỏ lượt thì ngày đó không ai bị loại.
    - **Gươm Excalibur:** Phiếu của người cầm gươm được tính 2.
